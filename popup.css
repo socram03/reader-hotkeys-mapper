@@ -1,0 +1,375 @@
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  color-scheme: dark;
+  --bg: #0c0c10;
+  --surface: #16161c;
+  --surface-2: #1e1e26;
+  --surface-3: #252530;
+  --text: #e8e6e1;
+  --muted: #7a787f;
+  --border: rgba(255, 186, 8, 0.10);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --accent: #FFBA08;
+  --accent-dim: rgba(255, 186, 8, 0.12);
+  --accent-mid: rgba(255, 186, 8, 0.25);
+  --success: #34d399;
+  --success-dim: rgba(52, 211, 153, 0.15);
+  --warn: #f59e0b;
+  --warn-dim: rgba(245, 158, 11, 0.15);
+  --danger: #f87171;
+  --danger-dim: rgba(248, 113, 113, 0.12);
+}
+
+* { box-sizing: border-box; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 'IBM Plex Mono', 'Consolas', monospace;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* top accent line */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  z-index: 100;
+}
+
+.popup {
+  width: 380px;
+  padding: 20px 18px 18px;
+  display: grid;
+  gap: 14px;
+}
+
+/* ── HERO ── */
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--accent);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 16px var(--accent-dim), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.brand-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: #0c0c10;
+}
+
+.brand-text .eyebrow {
+  font: 600 10px/1 'Chakra Petch', sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.brand-text h1 {
+  font: 700 18px/1.15 'Chakra Petch', sans-serif;
+  letter-spacing: -0.01em;
+  margin-top: 3px;
+}
+
+.btn-options {
+  appearance: none;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface);
+  color: var(--muted);
+  font: 500 11px/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+}
+
+.btn-options:hover {
+  color: var(--accent);
+  border-color: var(--accent-mid);
+  background: var(--accent-dim);
+}
+
+/* ── STATUS CARD ── */
+.status-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 14px 16px;
+}
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.status-host {
+  font: 600 14px/1.2 'Chakra Petch', sans-serif;
+  color: var(--text);
+}
+
+.status-path {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.led {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.led::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.led.on {
+  color: var(--success);
+}
+.led.on::before {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success), 0 0 12px rgba(52, 211, 153, 0.3);
+}
+
+.led.off {
+  color: var(--muted);
+}
+.led.off::before {
+  background: var(--muted);
+  opacity: 0.5;
+}
+
+.status-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.meta-label {
+  color: var(--muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.meta-value {
+  color: var(--text);
+  font-size: 11px;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta-value.dim { color: var(--muted); }
+
+/* ── ACTION GRID ── */
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.actions .full-width {
+  grid-column: 1 / -1;
+}
+
+/* keycap button style */
+.key-btn {
+  appearance: none;
+  position: relative;
+  border: 1px solid var(--border-subtle);
+  border-bottom-width: 3px;
+  border-bottom-color: rgba(0,0,0,0.4);
+  background: var(--surface-2);
+  color: var(--text);
+  font: 500 12px/1.3 'IBM Plex Mono', monospace;
+  padding: 10px 10px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-align: center;
+}
+
+.key-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--accent-mid);
+  color: var(--accent);
+}
+
+.key-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  border-bottom-width: 1px;
+  padding-bottom: 11px;
+}
+
+.key-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.key-btn.primary {
+  background: linear-gradient(180deg, #d49b00, #b8860b);
+  border-color: rgba(0,0,0,0.3);
+  border-bottom-color: rgba(0,0,0,0.6);
+  color: #0c0c10;
+  font-weight: 700;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.15);
+}
+
+.key-btn.primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #e0a800, #c99212);
+  color: #0c0c10;
+}
+
+.key-btn .key-label {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+.key-btn.primary .key-label {
+  color: rgba(12, 12, 16, 0.6);
+}
+
+/* toggle state indicators */
+.key-btn.active {
+  border-color: var(--accent-mid);
+  background: var(--accent-dim);
+}
+
+.key-btn.active .key-label {
+  color: var(--accent);
+}
+
+/* ── SHORTCUTS FOOTER ── */
+.shortcuts {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 10px 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.shortcuts-title {
+  font: 600 10px/1 'Chakra Petch', sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.shortcut-row .key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 7px;
+  background: var(--bg);
+  border: 1px solid var(--border-subtle);
+  border-bottom-width: 2px;
+  border-bottom-color: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  font: 600 11px/1 'IBM Plex Mono', monospace;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.shortcut-row span:last-child {
+  color: var(--muted);
+}
+
+/* ── ERROR ── */
+.error-msg {
+  color: var(--danger);
+  font-size: 12px;
+  padding: 12px 14px;
+  background: var(--danger-dim);
+  border: 1px solid rgba(248, 113, 113, 0.15);
+  border-radius: 4px;
+  line-height: 1.5;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.popup > * {
+  animation: fadeSlideIn 0.25s ease both;
+}
+.popup > :nth-child(1) { animation-delay: 0s; }
+.popup > :nth-child(2) { animation-delay: 0.04s; }
+.popup > :nth-child(3) { animation-delay: 0.08s; }
+.popup > :nth-child(4) { animation-delay: 0.12s; }

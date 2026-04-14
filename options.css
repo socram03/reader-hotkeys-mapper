@@ -1,0 +1,633 @@
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  color-scheme: dark;
+  --bg: #0c0c10;
+  --surface: #16161c;
+  --surface-2: #1e1e26;
+  --surface-3: #252530;
+  --text: #e8e6e1;
+  --muted: #7a787f;
+  --border: rgba(255, 186, 8, 0.10);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --accent: #FFBA08;
+  --accent-dim: rgba(255, 186, 8, 0.10);
+  --accent-mid: rgba(255, 186, 8, 0.25);
+  --success: #34d399;
+  --danger: #f87171;
+  --danger-dim: rgba(248, 113, 113, 0.08);
+}
+
+* { box-sizing: border-box; margin: 0; }
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.55 'IBM Plex Mono', 'Consolas', monospace;
+  position: relative;
+}
+
+/* noise */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* top accent bar */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 5%, var(--accent) 30%, var(--accent) 70%, transparent 95%);
+  z-index: 100;
+}
+
+/* ── LAYOUT ── */
+.layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 28px 60px;
+  display: grid;
+  gap: 24px;
+}
+
+/* ── HERO ── */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: start;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.hero-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--accent);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 24px var(--accent-dim);
+}
+
+.hero-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: #0c0c10;
+}
+
+.hero-titles h1 {
+  font: 700 28px/1.1 'Chakra Petch', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.hero-titles .eyebrow {
+  font: 600 11px/1 'Chakra Petch', sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.hero-desc {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  max-width: 620px;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ── BUTTONS (keycap) ── */
+button {
+  appearance: none;
+  position: relative;
+  border: 1px solid var(--border-subtle);
+  border-bottom-width: 3px;
+  border-bottom-color: rgba(0,0,0,0.4);
+  background: var(--surface-2);
+  color: var(--text);
+  font: 500 12px/1.3 'IBM Plex Mono', monospace;
+  padding: 10px 16px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+button:hover {
+  background: var(--surface-3);
+  border-color: var(--accent-mid);
+  color: var(--accent);
+}
+
+button:active {
+  transform: translateY(1px);
+  border-bottom-width: 1px;
+  padding-bottom: 11px;
+}
+
+button.primary {
+  background: linear-gradient(180deg, #d49b00, #b8860b);
+  border-color: rgba(0,0,0,0.2);
+  border-bottom-color: rgba(0,0,0,0.5);
+  color: #0c0c10;
+  font-weight: 700;
+}
+
+button.primary:hover {
+  background: linear-gradient(180deg, #e0a800, #c99212);
+  color: #0c0c10;
+}
+
+button.danger {
+  border-color: rgba(248, 113, 113, 0.2);
+  color: var(--danger);
+}
+
+button.danger:hover {
+  background: var(--danger-dim);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+button.ghost {
+  background: transparent;
+  border-color: var(--border-subtle);
+  border-bottom-width: 1px;
+  color: var(--muted);
+}
+
+button.ghost:hover {
+  color: var(--accent);
+  border-color: var(--accent-mid);
+}
+
+/* ── NOTICE / MESSAGE ── */
+.notice {
+  min-height: 22px;
+  font-size: 12px;
+  padding: 0 2px;
+  transition: color 0.2s ease;
+}
+
+.notice.error {
+  color: var(--danger);
+}
+
+.notice.ok {
+  color: var(--accent);
+}
+
+/* ── SUMMARY STATS ── */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 16px 18px;
+}
+
+.stat-label {
+  font: 600 10px/1 'Chakra Petch', sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font: 700 32px/1 'Chakra Petch', sans-serif;
+  color: var(--text);
+}
+
+/* ── MAPPING LIST ── */
+.mapping-list {
+  display: grid;
+  gap: 16px;
+}
+
+/* ── MAPPING CARD ── */
+.mapping-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mapping-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  background: rgba(30, 30, 38, 0.5);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s ease;
+}
+
+.mapping-card-head:hover {
+  background: rgba(30, 30, 38, 0.7);
+}
+
+.mapping-card:not(.collapsed) .mapping-card-head {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.mapping-card-head-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.collapse-toggle {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border-subtle) !important;
+  border-bottom-width: 1px !important;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.collapse-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent-mid) !important;
+  background: transparent;
+}
+
+.collapse-chevron {
+  display: block;
+  transition: transform 0.2s ease;
+  transform: rotate(0deg);
+}
+
+.collapse-chevron.open {
+  transform: rotate(90deg);
+}
+
+.mapping-card-head h2 {
+  font: 600 15px/1.2 'Chakra Petch', sans-serif;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mapping-card-subtitle {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mapping-card-summary {
+  color: rgba(122, 120, 127, 0.7);
+}
+
+.mapping-card-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mapping-card-body {
+  padding: 20px;
+  display: grid;
+  gap: 18px;
+}
+
+.mapping-card.collapsed .mapping-card-body,
+.mapping-card.collapsed .card-footer {
+  display: none;
+}
+
+/* enabled indicator */
+.mapping-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.mapping-status-dot.on {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+
+.mapping-status-dot.off {
+  background: var(--muted);
+  opacity: 0.4;
+}
+
+/* ── FORM FIELDS ── */
+.field-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.field-grid.cols-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field-label {
+  font: 500 11px/1 'IBM Plex Mono', monospace;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+input[type="text"],
+textarea {
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 'IBM Plex Mono', monospace;
+  padding: 10px 12px;
+  transition: border-color 0.15s ease;
+}
+
+input[type="text"]:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent-mid);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+input[type="text"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input[type="text"]::placeholder,
+textarea::placeholder {
+  color: rgba(122, 120, 127, 0.5);
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* toggle / checkbox field */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: rgba(22, 22, 28, 0.6);
+}
+
+.toggle-row .field-label {
+  margin: 0;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  appearance: none;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-switch input:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.toggle-switch input::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform 0.2s ease;
+  pointer-events: none;
+}
+
+.toggle-switch input:checked::after {
+  transform: translateX(18px);
+  background: #0c0c10;
+}
+
+/* ── ACTION SECTION (next/prev/main) ── */
+.action-section {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.action-section-head {
+  padding: 10px 16px;
+  background: rgba(30, 30, 38, 0.6);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-section-head h3 {
+  font: 600 13px/1 'Chakra Petch', sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.action-section-head .action-arrow {
+  font-size: 14px;
+  color: var(--accent);
+}
+
+.action-section-body {
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.action-section-body .field-grid.cols-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* ── HINT CARD ── */
+.hint-card {
+  border: 1px dashed var(--border-subtle);
+  border-radius: 4px;
+  padding: 12px 14px;
+  background: rgba(22, 22, 28, 0.4);
+}
+
+.hint-card strong {
+  display: block;
+  font: 600 11px/1.2 'IBM Plex Mono', monospace;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.hint-card p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ── CARD FOOTER ── */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-subtle);
+  background: rgba(30, 30, 38, 0.3);
+}
+
+.card-footer .timestamp {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px dashed var(--border-subtle);
+  border-radius: 6px;
+}
+
+.empty-state .empty-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.3;
+}
+
+.empty-state p {
+  font-size: 13px;
+  max-width: 420px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mapping-card {
+  animation: fadeSlideIn 0.3s ease both;
+}
+
+.mapping-card:nth-child(1) { animation-delay: 0s; }
+.mapping-card:nth-child(2) { animation-delay: 0.05s; }
+.mapping-card:nth-child(3) { animation-delay: 0.1s; }
+.mapping-card:nth-child(4) { animation-delay: 0.15s; }
+.mapping-card:nth-child(5) { animation-delay: 0.2s; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .layout {
+    padding: 24px 16px 48px;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions {
+    justify-content: flex-start;
+  }
+
+  .field-grid.cols-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .mapping-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .mapping-card-head-left {
+    width: 100%;
+  }
+
+  .mapping-card-head-actions {
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 38px;
+  }
+
+  .card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .action-section-body .field-grid.cols-2 {
+    grid-template-columns: 1fr;
+  }
+}

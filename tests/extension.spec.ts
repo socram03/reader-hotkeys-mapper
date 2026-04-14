@@ -1,0 +1,180 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { chromium, expect, test, type BrowserContext, type Page } from '@playwright/test';
+
+const EXTENSION_PATH = path.resolve(__dirname, '..');
+
+test.describe.serial('Reader Hotkeys extension', () => {
+	let context: BrowserContext;
+	let extensionId = '';
+	let userDataDir = '';
+
+	test.beforeAll(async () => {
+		userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'reader-hotkeys-'));
+		context = await chromium.launchPersistentContext(userDataDir, {
+			channel: 'chromium',
+			headless: false,
+			args: [
+				`--disable-extensions-except=${EXTENSION_PATH}`,
+				`--load-extension=${EXTENSION_PATH}`
+			]
+		});
+
+		let [worker] = context.serviceWorkers();
+		if (!worker) worker = await context.waitForEvent('serviceworker');
+		extensionId = worker.url().split('/')[2];
+	});
+
+	test.afterAll(async () => {
+		await context?.close();
+		if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
+	});
+
+	test('maps a custom site and enables navigation shortcuts', async ({ baseURL }) => {
+		const readerPage = await context.newPage();
+		readerPage.on('dialog', dialog => dialog.accept('Custom Local'));
+
+		await readerPage.goto(`${baseURL}/custom/reader-1.html`);
+		await readerPage.keyboard.press('ArrowRight');
+		await expect(readerPage).toHaveURL(/reader-1\.html$/);
+
+		const optionsPage = await context.newPage();
+		await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+		await optionsPage.click('#start-picker');
+
+		const targetTabId = await getTargetTabId(optionsPage);
+		await readerPage.bringToFront();
+		await expect(readerPage.locator('[data-mapper-save="true"]')).toBeVisible();
+
+		await readerPage.click('#next-link');
+		await readerPage.click('#prev-link');
+		await readerPage.click('#main-link');
+		await readerPage.click('[data-mapper-save="true"]');
+		await waitForExtensionReady(readerPage);
+
+		await readerPage.keyboard.press('ArrowRight');
+		await expect(readerPage).toHaveURL(/reader-2\.html$/);
+
+		await ensureReaderInTab(optionsPage, targetTabId);
+		await readerPage.bringToFront();
+		await waitForExtensionReady(readerPage);
+		await readerPage.keyboard.press('ArrowLeft');
+		await expect(readerPage).toHaveURL(/reader-1\.html$/);
+
+		await ensureReaderInTab(optionsPage, targetTabId);
+		await readerPage.bringToFront();
+		await waitForExtensionReady(readerPage);
+		await readerPage.keyboard.press('m');
+		await expect(readerPage).toHaveURL(/series\.html$/);
+
+		await readerPage.goto(`${baseURL}/custom/reader-1.html`);
+		await ensureReaderInTab(optionsPage, targetTabId);
+		await readerPage.bringToFront();
+		await waitForExtensionReady(readerPage);
+		await readerPage.keyboard.press('z');
+		await expect(readerPage.locator('header')).toBeHidden();
+
+		await readerPage.evaluate(() => {
+			window.scrollTo({ top: 900, behavior: 'auto' });
+		});
+		await readerPage.waitForTimeout(500);
+		await readerPage.keyboard.press('m');
+		await expect(readerPage).toHaveURL(/series\.html$/);
+
+		await readerPage.bringToFront();
+		const resumePopup = await context.newPage();
+		await resumePopup.goto(`chrome-extension://${extensionId}/popup.html`);
+		await expect(resumePopup.locator('#resume-last-read')).toBeEnabled();
+		await expect(resumePopup.locator('.status-card')).toContainText('Custom Reader 1');
+		await resumePopup.click('#resume-last-read');
+
+		await expect(readerPage).toHaveURL(/reader-1\.html$/);
+		await waitForExtensionReady(readerPage);
+		await readerPage.waitForFunction(() => {
+			return (window.scrollY || 0) > 500;
+		});
+
+		await optionsPage.close();
+	});
+
+	test('supports explicit activation and migration aliases from options', async ({ baseURL }) => {
+		const optionsPage = await context.newPage();
+		await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+
+		await expect(optionsPage.locator('h1')).toContainText('Opciones y mapeos');
+		await expect(optionsPage.locator('#mapping-count')).toHaveText('1');
+		await expect(optionsPage.locator('.mapping-card')).toContainText('Custom Local');
+
+		await optionsPage.click('.mapping-card-head');
+		await optionsPage.fill('[data-input="label"]', 'Custom Local Edited');
+		await optionsPage.fill('[data-input="hostAliases"]', 'localhost:4173');
+		await optionsPage.fill('[data-input="readingPrefixes"]', '/alt/');
+		await optionsPage.uncheck('[data-input="enabled"]');
+		await optionsPage.click('[data-action="save"]');
+		await expect(optionsPage.locator('.mapping-card h2')).toContainText('Custom Local Edited');
+		await expect(optionsPage.locator('[data-input="enabled"]')).not.toBeChecked();
+
+		const inactivePage = await context.newPage();
+		await inactivePage.goto(`${baseURL}/custom/reader-1.html`);
+		await ensureReaderInActiveTab(optionsPage, inactivePage);
+		await waitForExtensionIdle(inactivePage);
+		await inactivePage.keyboard.press('ArrowRight');
+		await expect(inactivePage).toHaveURL(/reader-1\.html$/);
+
+		const popupPage = await context.newPage();
+		await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+		await expect(popupPage.locator('#toggle-site-activation')).toHaveText('Activar sitio');
+		await popupPage.click('#toggle-site-activation');
+		await popupPage.close();
+
+		await inactivePage.bringToFront();
+		await waitForExtensionReady(inactivePage);
+		await inactivePage.keyboard.press('ArrowRight');
+		await expect(inactivePage).toHaveURL(/reader-2\.html$/);
+
+		const migratedPage = await context.newPage();
+		await migratedPage.goto('http://localhost:4173/alt/reader-1.html');
+		await ensureReaderInActiveTab(optionsPage, migratedPage);
+		await waitForExtensionReady(migratedPage);
+		await migratedPage.keyboard.press('ArrowRight');
+		await expect(migratedPage).toHaveURL(/localhost:4173\/alt\/reader-2\.html$/);
+	});
+});
+
+async function getTargetTabId(extensionPage: Page) {
+	const targetTabId = await extensionPage.evaluate(async () => {
+		const tab = await (globalThis as any).__readerHotkeysTest.getBestTargetTab();
+		return tab?.id || null;
+	});
+
+	if (!targetTabId) {
+		throw new Error('No encontre la pestana objetivo para la prueba.');
+	}
+
+	return targetTabId;
+}
+
+async function ensureReaderInTab(extensionPage: Page, tabId: number) {
+	await extensionPage.evaluate(async currentTabId => {
+		await (globalThis as any).__readerHotkeysTest.ensureReaderScript(currentTabId);
+	}, tabId);
+}
+
+async function ensureReaderInActiveTab(extensionPage: Page, page: Page) {
+	await page.bringToFront();
+	const tabId = await getTargetTabId(extensionPage);
+	await ensureReaderInTab(extensionPage, tabId);
+}
+
+async function waitForExtensionReady(page: Page) {
+	await page.waitForFunction(() => {
+		return document.documentElement.dataset.readerHotkeysReady === 'true';
+	});
+}
+
+async function waitForExtensionIdle(page: Page) {
+	await page.waitForFunction(() => {
+		return document.documentElement.dataset.readerHotkeysReady === 'idle';
+	});
+}
