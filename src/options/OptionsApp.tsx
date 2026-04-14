@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
 	actionSelectorsToText,
+	buildLatestReadsFilename,
 	buildMappingId,
 	createBlankMapping,
 	ensureReaderScript,
 	getAllMappingHosts,
 	getBestTargetTab,
 	inferPathPrefix,
+	loadLatestReadExport,
 	loadUserMappings,
 	multilineTextToList,
 	normalizeHost,
@@ -30,11 +32,30 @@ import type { MappingEntry, MappingState } from './types';
 
 export function OptionsApp() {
 	const [mappingState, setMappingState] = useState<MappingState>({ version: 3, entries: [] });
+	const [resumeSummary, setResumeSummary] = useState({ totalWorks: 0, totalEntries: 0 });
 	const [message, setMessageState] = useState<{ text: string; error: boolean }>({ text: '', error: false });
 	const importFileRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
 		void initialize();
+
+		const handleFocus = () => {
+			void refreshResumeSummary();
+		};
+
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === 'visible') {
+				void refreshResumeSummary();
+			}
+		};
+
+		window.addEventListener('focus', handleFocus);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+
+		return () => {
+			window.removeEventListener('focus', handleFocus);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		};
 	}, []);
 
 	const entries = useMemo(() => {
@@ -45,9 +66,30 @@ export function OptionsApp() {
 
 	async function initialize() {
 		try {
-			setMappingState(await loadUserMappings());
+			const [nextMappingState, latestReads] = await Promise.all([
+				loadUserMappings(),
+				loadLatestReadExport()
+			]);
+
+			setMappingState(nextMappingState);
+			setResumeSummary({
+				totalWorks: latestReads.totalWorks,
+				totalEntries: latestReads.totalEntries
+			});
 		} catch (error) {
 			setMessage(`No pude cargar opciones: ${getErrorMessage(error)}`, true);
+		}
+	}
+
+	async function refreshResumeSummary() {
+		try {
+			const latestReads = await loadLatestReadExport();
+			setResumeSummary({
+				totalWorks: latestReads.totalWorks,
+				totalEntries: latestReads.totalEntries
+			});
+		} catch {
+			return;
 		}
 	}
 
@@ -197,6 +239,25 @@ export function OptionsApp() {
 		setMessage('Exportacion lista.');
 	}
 
+	async function exportLatestReads() {
+		try {
+			const latestReads = await loadLatestReadExport();
+			if (!latestReads.totalWorks) {
+				throw new Error('No hay ultimos capitulos guardados para exportar.');
+			}
+
+			setResumeSummary({
+				totalWorks: latestReads.totalWorks,
+				totalEntries: latestReads.totalEntries
+			});
+
+			downloadJsonFile(latestReads, buildLatestReadsFilename());
+			setMessage(`Exporte ${latestReads.totalWorks} obra(s) con progreso guardado.`);
+		} catch (error) {
+			setMessage(getErrorMessage(error), true);
+		}
+	}
+
 	async function handleImportFile(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
@@ -244,6 +305,9 @@ export function OptionsApp() {
 					<button id="export-mappings" class="ghost" type="button" onClick={exportMappings}>
 						Exportar
 					</button>
+					<button id="export-latest-reads" class="ghost" type="button" onClick={() => void exportLatestReads()}>
+						Exportar lecturas
+					</button>
 					<button id="import-mappings" class="ghost" type="button" onClick={() => importFileRef.current?.click()}>
 						Importar
 					</button>
@@ -273,6 +337,14 @@ export function OptionsApp() {
 				<div class="stat-card">
 					<div class="stat-label">Hosts distintos</div>
 					<div class="stat-value" id="host-count">{new Set(entries.flatMap(entry => getAllMappingHosts(entry))).size}</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-label">Obras con progreso</div>
+					<div class="stat-value" id="resume-work-count">{resumeSummary.totalWorks}</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-label">Capitulos guardados</div>
+					<div class="stat-value" id="resume-entry-count">{resumeSummary.totalEntries}</div>
 				</div>
 			</section>
 
@@ -361,4 +433,14 @@ function normalizeEntryForSave(entry: MappingEntry): MappingEntry {
 
 function getErrorMessage(error: unknown) {
 	return error instanceof Error ? error.message : String(error || 'Error desconocido');
+}
+
+function downloadJsonFile(data: unknown, filename: string) {
+	const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+	const url = URL.createObjectURL(blob);
+	const anchor = document.createElement('a');
+	anchor.href = url;
+	anchor.download = filename;
+	anchor.click();
+	URL.revokeObjectURL(url);
 }

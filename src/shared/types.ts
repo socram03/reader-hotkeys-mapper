@@ -27,6 +27,43 @@ export type MappingState = {
 	entries: MappingEntry[];
 };
 
+export type ResumeEntry = {
+	storageKey: string;
+	scrollY: number;
+	percent: number;
+	updatedAt: number;
+	title: string;
+	host: string;
+	siteId: string;
+	mainHref: string;
+	workKey: string;
+	chapterHref: string;
+};
+
+export type LatestReadExportEntry = {
+	workId: string;
+	siteId: string;
+	host: string;
+	workHref: string;
+	workKey: string;
+	chapterHref: string;
+	chapterTitle: string;
+	trackedEntries: number;
+	progressPercent: number;
+	scrollY: number;
+	updatedAt: number;
+	updatedAtIso: string;
+	storageKey: string;
+};
+
+export type LatestReadExport = {
+	exportedAt: number;
+	exportedAtIso: string;
+	totalWorks: number;
+	totalEntries: number;
+	entries: LatestReadExportEntry[];
+};
+
 export type ReaderStatus = {
 	readyState?: string;
 	host?: string;

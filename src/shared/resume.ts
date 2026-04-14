@@ -1,0 +1,154 @@
+import { extensionStorage } from './extensionStorage';
+import { STORAGE_KEYS } from './storageKeys';
+import type { LatestReadExport, LatestReadExportEntry, ResumeEntry } from './types';
+
+type RawRecord = Record<string, unknown>;
+
+export async function loadResumeEntries(): Promise<ResumeEntry[]> {
+	const data = await extensionStorage.get([STORAGE_KEYS.resume]);
+	return normalizeResumeEntries(data[STORAGE_KEYS.resume]);
+}
+
+export async function loadLatestReadExport(): Promise<LatestReadExport> {
+	return buildLatestReadExport(await loadResumeEntries());
+}
+
+export function buildLatestReadsFilename(date = new Date()): string {
+	const timestamp = date.toISOString().replace(/[:.]/g, '-');
+	return `reader-hotkeys-latest-reads-${timestamp}.json`;
+}
+
+export function buildLatestReadExport(entries: ResumeEntry[]): LatestReadExport {
+	const normalizedEntries = normalizeResumeEntries(entries).filter(isMeaningfulResumeEntry);
+	const latestEntriesByWork = new Map<string, { entry: ResumeEntry; trackedEntries: number }>();
+
+	normalizedEntries.forEach(entry => {
+		const workId = getResumeWorkId(entry);
+		const existing = latestEntriesByWork.get(workId);
+
+		if (!existing) {
+			latestEntriesByWork.set(workId, { entry, trackedEntries: 1 });
+			return;
+		}
+
+		existing.trackedEntries += 1;
+		if (entry.updatedAt > existing.entry.updatedAt) {
+			existing.entry = entry;
+		}
+	});
+
+	const exportedAt = Date.now();
+	const exportedEntries: LatestReadExportEntry[] = [...latestEntriesByWork.entries()]
+		.map(([workId, value]) => {
+			return {
+				workId,
+				siteId: value.entry.siteId,
+				host: value.entry.host,
+				workHref: value.entry.mainHref,
+				workKey: value.entry.workKey,
+				chapterHref: value.entry.chapterHref,
+				chapterTitle: value.entry.title,
+				trackedEntries: value.trackedEntries,
+				progressPercent: roundProgressPercent(value.entry.percent),
+				scrollY: value.entry.scrollY,
+				updatedAt: value.entry.updatedAt,
+				updatedAtIso: new Date(value.entry.updatedAt).toISOString(),
+				storageKey: value.entry.storageKey
+			};
+		})
+		.sort((left, right) => right.updatedAt - left.updatedAt);
+
+	return {
+		exportedAt,
+		exportedAtIso: new Date(exportedAt).toISOString(),
+		totalWorks: exportedEntries.length,
+		totalEntries: normalizedEntries.length,
+		entries: exportedEntries
+	};
+}
+
+function normalizeResumeEntries(rawResumeState: unknown): ResumeEntry[] {
+	if (Array.isArray(rawResumeState)) {
+		return rawResumeState
+			.map(entry => normalizeResumeEntry((entry as ResumeEntry).storageKey || '', entry))
+			.filter((entry): entry is ResumeEntry => Boolean(entry))
+			.sort((left, right) => right.updatedAt - left.updatedAt);
+	}
+
+	if (!isRecord(rawResumeState)) return [];
+
+	return Object.entries(rawResumeState)
+		.map(([storageKey, entry]) => normalizeResumeEntry(storageKey, entry))
+		.filter((entry): entry is ResumeEntry => Boolean(entry))
+		.sort((left, right) => right.updatedAt - left.updatedAt);
+}
+
+function normalizeResumeEntry(storageKey: string, value: unknown): ResumeEntry | null {
+	if (!isRecord(value)) return null;
+
+	const chapterHref = normalizeComparableHref(value.chapterHref);
+	if (!chapterHref) return null;
+
+	return {
+		storageKey: String(storageKey || '').trim() || chapterHref,
+		scrollY: toNumber(value.scrollY),
+		percent: clampPercent(toNumber(value.percent)),
+		updatedAt: toTimestamp(value.updatedAt),
+		title: String(value.title || '').trim(),
+		host: String(value.host || '').trim().toLowerCase(),
+		siteId: String(value.siteId || '').trim(),
+		mainHref: normalizeComparableHref(value.mainHref),
+		workKey: normalizeWorkKey(value.workKey),
+		chapterHref
+	};
+}
+
+function getResumeWorkId(entry: ResumeEntry): string {
+	if (entry.mainHref) return `href:${entry.mainHref}`;
+	if (entry.workKey) return `work:${entry.siteId || entry.host}:${entry.workKey}`;
+	return `chapter:${entry.chapterHref}`;
+}
+
+function isMeaningfulResumeEntry(entry: ResumeEntry): boolean {
+	return entry.scrollY >= 180 || entry.percent >= 0.05;
+}
+
+function normalizeComparableHref(value: unknown): string {
+	const href = String(value || '').trim();
+	if (!href) return '';
+
+	try {
+		const url = new URL(href);
+		url.hash = '';
+		return url.href;
+	} catch {
+		return href;
+	}
+}
+
+function normalizeWorkKey(value: unknown): string {
+	return String(value || '').trim().toLowerCase();
+}
+
+function roundProgressPercent(value: number): number {
+	return Math.round(clampPercent(value) * 10000) / 100;
+}
+
+function clampPercent(value: number): number {
+	if (!Number.isFinite(value)) return 0;
+	return Math.min(1, Math.max(0, value));
+}
+
+function toNumber(value: unknown): number {
+	const numeric = Number(value);
+	return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function toTimestamp(value: unknown): number {
+	const numeric = Number(value);
+	return Number.isFinite(numeric) && numeric > 0 ? numeric : Date.now();
+}
+
+function isRecord(value: unknown): value is RawRecord {
+	return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}

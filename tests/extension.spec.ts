@@ -95,6 +95,21 @@ test.describe.serial('Reader Hotkeys extension', () => {
 			return (window.scrollY || 0) > 500;
 		});
 
+		await optionsPage.bringToFront();
+		const latestReadsDownload = optionsPage.waitForEvent('download');
+		await optionsPage.click('#export-latest-reads');
+		const latestReadsFile = await latestReadsDownload;
+		const latestReadsPath = path.join(userDataDir, 'latest-reads-export.json');
+		await latestReadsFile.saveAs(latestReadsPath);
+		await expect(optionsPage.locator('#resume-work-count')).toHaveText('1');
+
+		const exportedLatestReads = JSON.parse(fs.readFileSync(latestReadsPath, 'utf8'));
+		expect(exportedLatestReads.totalWorks).toBe(1);
+		expect(exportedLatestReads.totalEntries).toBeGreaterThanOrEqual(1);
+		expect(exportedLatestReads.entries).toHaveLength(1);
+		expect(String(exportedLatestReads.entries[0].chapterHref)).toContain('/custom/reader-1.html');
+		expect(Number(exportedLatestReads.entries[0].trackedEntries)).toBeGreaterThanOrEqual(1);
+
 		await optionsPage.close();
 	});
 
