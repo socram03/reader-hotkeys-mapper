@@ -5,7 +5,7 @@ It includes native support for several popular sites and a local mapping system 
 
 Developed in **TypeScript**, bundled with **Bun**. The popup and options UI are built with **Preact**, and dependencies are managed with **Bun**.
 
-Spanish version: [README.es.md](./README.es.md)
+Spanish version: [README.ES.md](./README.ES.md)
 
 ## Features
 
