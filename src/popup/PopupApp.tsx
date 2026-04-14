@@ -205,21 +205,23 @@ export function PopupApp() {
 			{/* ── Shortcuts ── */}
 			<footer class="shortcuts">
 				<div class="shortcuts-title">Atajos rapidos</div>
-				<div class="shortcut-row">
-					<span class="key">m</span>
-					<span>Volver a la obra</span>
-				</div>
-				<div class="shortcut-row">
-					<span class="key">l</span>
-					<span>Retomar ultimo capitulo</span>
-				</div>
-				<div class="shortcut-row">
-					<span class="key">z</span>
-					<span>Alternar modo zen</span>
-				</div>
-				<div class="shortcut-row">
-					<span class="key">j/k</span>
-					<span>Siguiente / anterior</span>
+				<div class="shortcut-grid">
+					<div class="shortcut-pill">
+						<span class="key">m</span>
+						<span>Obra</span>
+					</div>
+					<div class="shortcut-pill">
+						<span class="key">l</span>
+						<span>Retomar</span>
+					</div>
+					<div class="shortcut-pill">
+						<span class="key">z</span>
+						<span>Zen</span>
+					</div>
+					<div class="shortcut-pill">
+						<span class="key">j/k</span>
+						<span>Scroll</span>
+					</div>
 				</div>
 			</footer>
 		</main>
