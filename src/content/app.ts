@@ -187,7 +187,7 @@ async function handleRuntimeMessage(message) {
 			toggleShortcutHelp();
 			return getReaderStatus();
 		case 'reader:resume-last-read':
-			resumeLastRead(true);
+			await resumeLastRead(true);
 			return getReaderStatus();
 		case 'reader:open-chapter-map':
 			if (runtime.site) toggleChapterMap();
@@ -679,16 +679,16 @@ function flushResumeSave() {
 	runtime.saveTimer = 0;
 
 	if (Date.now() < runtime.resumeGuardUntil && getReadProgress() < 0.08) {
-		return;
+		return Promise.resolve(false);
 	}
 
 	const entry = buildResumeEntry();
-	if (!entry) return;
+	if (!entry) return Promise.resolve(false);
 
 	runtime.persisted.resume[getResumeKey()] = entry;
 	updateWorkResumeEntry(entry);
 	runtime.persisted.resume = pruneResumeEntries(runtime.persisted.resume);
-	storage.set({ [STORAGE_KEYS.resume]: runtime.persisted.resume });
+	return storage.set({ [STORAGE_KEYS.resume]: runtime.persisted.resume });
 }
 
 function buildResumeEntry() {
@@ -837,7 +837,7 @@ function restoreResumePosition(manual) {
 	return true;
 }
 
-function resumeLastRead(manual) {
+async function resumeLastRead(manual) {
 	const target = getResumeTarget(window.location);
 	if (!target?.entry?.chapterHref) {
 		if (manual) showToast('No hay un ultimo capitulo guardado');
@@ -934,7 +934,7 @@ function checkAutoNext() {
 
 	runtime.autoNextTimer = window.setTimeout(() => {
 		runtime.autoNextTimer = 0;
-		navigateToHref(runtime.nextHref);
+		void navigateToHref(runtime.nextHref);
 	}, AUTO_NEXT_DELAY_MS);
 }
 
@@ -1731,7 +1731,7 @@ function renderChapterResults(overlay, chapters) {
 
 	[...results.querySelectorAll('[data-chapter-href]')].forEach(button => {
 		button.addEventListener('click', () => {
-			navigateToHref(button.dataset.chapterHref);
+			void navigateToHref(button.dataset.chapterHref);
 		});
 	});
 }
@@ -2019,12 +2019,24 @@ function getHrefLastSegment(href) {
 	}
 }
 
-function navigateToHref(href) {
+async function navigateToHref(href) {
 	const absoluteHref = getAbsoluteHref(href);
 	if (!absoluteHref) return false;
 
+	await persistResumeBeforeNavigation(absoluteHref);
 	window.location.href = absoluteHref;
 	return true;
+}
+
+async function persistResumeBeforeNavigation(targetHref) {
+	if (!runtime.site) return;
+	if (areComparableHrefsEqual(targetHref, getCurrentChapterHref())) return;
+
+	try {
+		await flushResumeSave();
+	} catch {
+		return;
+	}
 }
 
 const storage = createStorage();

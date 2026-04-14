@@ -78,7 +78,6 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await readerPage.evaluate(() => {
 			window.scrollTo({ top: 900, behavior: 'auto' });
 		});
-		await readerPage.waitForTimeout(500);
 		await readerPage.keyboard.press('m');
 		await expect(readerPage).toHaveURL(/series\.html$/);
 
@@ -102,7 +101,6 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await readerPage.evaluate(() => {
 			window.scrollTo({ top: 900, behavior: 'auto' });
 		});
-		await readerPage.waitForTimeout(500);
 		await readerPage.keyboard.press('m');
 		await expect(readerPage).toHaveURL(/series\.html$/);
 
