@@ -1833,18 +1833,34 @@ function navigateToHref(href) {
 const storage = createStorage();
 
 function createStorage() {
-	if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+	if (canUseChromeStorage()) {
 		return {
 			get(keys) {
 				return new Promise(resolve => {
-					chrome.storage.local.get(keys, value => {
-						resolve(value || {});
-					});
+					try {
+						chrome.storage.local.get(keys, value => {
+							if (hasRuntimeError()) {
+								resolve({});
+								return;
+							}
+
+							resolve(value || {});
+						});
+					} catch {
+						resolve({});
+					}
 				});
 			},
 			set(values) {
 				return new Promise(resolve => {
-					chrome.storage.local.set(values, () => resolve());
+					try {
+						chrome.storage.local.set(values, () => {
+							hasRuntimeError();
+							resolve();
+						});
+					} catch {
+						resolve();
+					}
 				});
 			}
 		};
@@ -1871,4 +1887,20 @@ function createStorage() {
 			});
 		}
 	};
+}
+
+function canUseChromeStorage() {
+	try {
+		return typeof chrome !== 'undefined' && Boolean(chrome.runtime?.id) && Boolean(chrome.storage?.local);
+	} catch {
+		return false;
+	}
+}
+
+function hasRuntimeError() {
+	try {
+		return Boolean(chrome.runtime?.lastError);
+	} catch {
+		return true;
+	}
 }
