@@ -133,6 +133,16 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await inactivePage.keyboard.press('ArrowRight');
 		await expect(inactivePage).toHaveURL(/reader-2\.html$/);
 
+		const unreadAliasSeriesPage = await context.newPage();
+		await unreadAliasSeriesPage.goto('http://localhost:4173/alt/series.html');
+		await unreadAliasSeriesPage.bringToFront();
+
+		const unreadAliasPopup = await context.newPage();
+		await unreadAliasPopup.goto(`chrome-extension://${extensionId}/popup.html`);
+		await expect(unreadAliasPopup.locator('#resume-last-read')).toBeDisabled();
+		await unreadAliasPopup.close();
+		await unreadAliasSeriesPage.close();
+
 		const migratedPage = await context.newPage();
 		await migratedPage.goto('http://localhost:4173/alt/reader-1.html');
 		await ensureReaderInActiveTab(optionsPage, migratedPage);

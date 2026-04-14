@@ -779,12 +779,7 @@ function getResumeTarget(location) {
 		}
 	}
 
-	const hostMatch = entries.find(entry => normalizeHost(entry.host) === normalizeHost(location.host));
-	if (hostMatch) {
-		return { entry: hostMatch, scope: 'host' };
-	}
-
-	return { entry: entries[0], scope: 'global' };
+	return null;
 }
 
 function getMeaningfulResumeEntries() {
@@ -1417,17 +1412,19 @@ function buildNthSelector(element) {
 	return parts.join(' > ');
 }
 
-function resolveMappedHref(action) {
-	if (!action?.selectors?.length) return '';
+function resolveMappedHref(action, options = {}) {
+	if (!action) return '';
 
-	for (const selector of action.selectors) {
-		try {
-			const element = document.querySelector(selector);
-			if (!element) continue;
-			const href = element.getAttribute?.('href');
-			if (href) return href;
-		} catch {
-			continue;
+	if (Array.isArray(action.selectors)) {
+		for (const selector of action.selectors) {
+			try {
+				const element = document.querySelector(selector);
+				if (!element) continue;
+				const href = element.getAttribute?.('href');
+				if (href) return href;
+			} catch {
+				continue;
+			}
 		}
 	}
 
@@ -1436,7 +1433,11 @@ function resolveMappedHref(action) {
 		return action.text && text.includes(action.text);
 	});
 
-	return fallback?.getAttribute('href') || action.sampleHref || '';
+	if (fallback?.getAttribute('href')) {
+		return fallback.getAttribute('href');
+	}
+
+	return options.allowSampleFallback ? action.sampleHref || '' : '';
 }
 
 function escapeCssToken(value) {
@@ -1694,7 +1695,12 @@ function saveSiteSetting(key, value) {
 }
 
 function getResumeKey() {
-	return `${runtime.site.id}:${window.location.pathname}${window.location.search}`;
+	const chapterHref = getCurrentChapterHref();
+	if (chapterHref) {
+		return `${runtime.site.id}:${chapterHref}`;
+	}
+
+	return `${runtime.site.id}:${window.location.host}${window.location.pathname}${window.location.search}`;
 }
 
 function getCurrentMainHref() {
