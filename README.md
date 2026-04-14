@@ -25,7 +25,7 @@ Spanish version: [README.ES.md](./README.ES.md)
 ## Extension Interface
 
 - `popup.html`: Quick control over the last compatible tab opened in the current window.
-- `options.html`: Advanced mapping editor with multiple mappings per domain, enable / disable custom sites, host aliases, supported path prefixes, manual CSS selector editing, editable `readingPrefix` and fallback links, JSON import/export, visual selector support, automatic content script reinjection, and a button to resume the last read chapter from the popup.
+- `options.html`: Advanced mapping editor with multiple mappings per domain, enable / disable custom sites, host aliases, supported path prefixes, manual CSS selector editing, editable `readingPrefix` and fallback links, JSON import/export, last-read export by work, visual selector support, automatic content script reinjection, and a button to resume the last read chapter from the popup.
 
 ## Natively Supported Sites
 

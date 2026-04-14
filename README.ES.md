@@ -23,7 +23,7 @@ Desarrollada en **TypeScript**, bundleada con **Bun**. La UI del popup y de opci
 ## Interfaz de la Extension
 
 - `popup.html`: Control rapido sobre la ultima pestana compatible abierta en la ventana actual.
-- `options.html`: Editor avanzado de mapeos con multiples mapeos por dominio, activacion y desactivacion de sitios personalizados, alias de host, prefijos de ruta soportados, edicion manual de selectores CSS, edicion de `readingPrefix` y enlaces fallback, importacion y exportacion JSON, selector visual para pestanas abiertas, reinyeccion automatica del content script y un boton para retomar el ultimo capitulo leido desde el popup.
+- `options.html`: Editor avanzado de mapeos con multiples mapeos por dominio, activacion y desactivacion de sitios personalizados, alias de host, prefijos de ruta soportados, edicion manual de selectores CSS, edicion de `readingPrefix` y enlaces fallback, importacion y exportacion JSON, exportacion de ultimos leidos por obra, selector visual para pestanas abiertas, reinyeccion automatica del content script y un boton para retomar el ultimo capitulo leido desde el popup.
 
 ## Sitios con Soporte Nativo
 
