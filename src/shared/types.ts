@@ -32,6 +32,7 @@ export type ReaderStatus = {
 	host?: string;
 	pathname?: string;
 	siteDetected?: boolean;
+	supportedSiteDetected?: boolean;
 	siteLabel?: string;
 	isBuiltInSite?: boolean;
 	canToggleActivation?: boolean;

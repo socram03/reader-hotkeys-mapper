@@ -197,10 +197,12 @@ async function handleRuntimeMessage(message) {
 }
 
 function getReaderStatus() {
+	const builtInHostSite = getBuiltInHostSite(window.location);
 	const matchedMapping = getMatchingUserMapping(window.location, { includeDisabled: true });
 	const activeMapping = runtime.site?.id?.startsWith('mapped:') ? matchedMapping : null;
 	const resumeTarget = getResumeTarget(window.location);
 	const currentChapterHref = getCurrentChapterHref();
+	const supportedSite = runtime.site || builtInHostSite || null;
 
 	return {
 		ok: true,
@@ -208,8 +210,12 @@ function getReaderStatus() {
 		host: window.location.host,
 		pathname: window.location.pathname,
 		siteDetected: Boolean(runtime.site),
-		siteLabel: runtime.site?.label || '',
-		isBuiltInSite: Boolean(runtime.site && !runtime.site.id?.startsWith('mapped:')),
+		supportedSiteDetected: Boolean(supportedSite),
+		siteLabel: runtime.site?.label || builtInHostSite?.label || '',
+		isBuiltInSite: Boolean(
+			(runtime.site && !runtime.site.id?.startsWith('mapped:'))
+			|| (!runtime.site && Boolean(builtInHostSite))
+		),
 		isMappedSite: Boolean(matchedMapping),
 		activeMappingId: activeMapping?.id || '',
 		activeMappingLabel: activeMapping?.label || '',
@@ -425,6 +431,10 @@ function getActiveSite(location) {
 	return Object.values(sites).find(site => {
 		return site.hosts.includes(location.host) && matchesPath(location.pathname, site.paths);
 	});
+}
+
+function getBuiltInHostSite(location) {
+	return Object.values(sites).find(site => site.hosts.includes(location.host)) || null;
 }
 
 function getMappedSite(location) {

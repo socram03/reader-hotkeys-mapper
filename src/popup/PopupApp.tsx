@@ -65,6 +65,7 @@ export function PopupApp() {
 	}
 
 	const hasReader = Boolean(status?.siteDetected);
+	const hasSupportedSite = Boolean(status?.supportedSiteDetected || hasReader);
 	const hasCandidateMapping = Boolean(status?.canToggleActivation);
 	const isBuiltInSite = Boolean(status?.isBuiltInSite);
 	const matchedMappingEnabled = status?.matchedMappingEnabled !== false;
@@ -77,7 +78,9 @@ export function PopupApp() {
 		? 'Sitio personalizado desactivado'
 		: hasReader
 			? status?.siteLabel || 'Lector detectado'
-			: 'Sin mapeo activo';
+			: hasSupportedSite
+				? `${status?.siteLabel || 'Sitio soportado'} - pagina fuera del lector`
+				: 'Sin mapeo activo';
 
 	return (
 		<main class="popup">
@@ -107,8 +110,8 @@ export function PopupApp() {
 							<div class="status-host">{status?.host || '—'}</div>
 							{status?.pathname && <div class="status-path">{status.pathname}</div>}
 						</div>
-						<span class={`led ${hasReader ? 'on' : 'off'}`}>
-							{hasReader ? 'Activo' : 'Inactivo'}
+						<span class={`led ${hasSupportedSite ? 'on' : 'off'}`}>
+							{hasReader ? 'Activo' : hasSupportedSite ? 'Soportado' : 'Inactivo'}
 						</span>
 					</div>
 					<div class="status-meta">
