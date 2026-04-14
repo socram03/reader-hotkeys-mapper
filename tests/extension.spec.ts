@@ -184,6 +184,65 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await migratedPage.keyboard.press('ArrowRight');
 		await expect(migratedPage).toHaveURL(/localhost:4173\/alt\/reader-2\.html$/);
 	});
+
+	test('keeps last read in SPA chapter flows without requiring a reload', async ({ baseURL }) => {
+		const spaPage = await context.newPage();
+		spaPage.on('dialog', dialog => dialog.accept('SPA Local'));
+
+		await spaPage.goto(`${baseURL}/spa/reader-1.html`);
+		await spaPage.keyboard.press('ArrowRight');
+		await expect(spaPage).toHaveURL(/spa\/reader-1\.html$/);
+
+		const optionsPage = await context.newPage();
+		await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+		await optionsPage.click('#start-picker');
+
+		const targetTabId = await getTargetTabId(optionsPage);
+		await spaPage.bringToFront();
+		await expect(spaPage.locator('[data-mapper-save="true"]')).toBeVisible();
+
+		await spaPage.click('#next-link');
+		await spaPage.click('#prev-link');
+		await spaPage.click('#main-link');
+		await spaPage.click('[data-mapper-save="true"]');
+		await waitForExtensionReady(spaPage);
+
+		await optionsPage.reload();
+		const spaMappingCard = optionsPage.locator('.mapping-card').filter({ hasText: 'SPA Local' });
+		await expect(spaMappingCard).toHaveCount(1);
+		await spaMappingCard.locator('.mapping-card-head').click();
+		await spaMappingCard.locator('[data-input="readingPrefix"]').fill('/spa/reader-');
+		await spaMappingCard.locator('[data-action="save"]').click();
+		await spaPage.reload();
+		await waitForExtensionReady(spaPage);
+
+		await spaPage.click('#next-link');
+		await expect(spaPage).toHaveURL(/spa\/reader-2\.html$/);
+		await waitForExtensionReady(spaPage);
+		await spaPage.keyboard.press('ArrowLeft');
+		await expect(spaPage).toHaveURL(/spa\/reader-1\.html$/);
+
+		await spaPage.evaluate(() => {
+			window.scrollTo({ top: 900, behavior: 'auto' });
+		});
+		await spaPage.waitForTimeout(600);
+		await spaPage.click('#main-link');
+		await expect(spaPage).toHaveURL(/spa\/series\.html$/);
+		await waitForExtensionIdle(spaPage);
+
+		await spaPage.bringToFront();
+		const popupPage = await context.newPage();
+		await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+		await expect(popupPage.locator('#resume-last-read')).toBeEnabled();
+		await expect(popupPage.locator('.status-card')).toContainText('SPA Reader 1');
+		await popupPage.click('#resume-last-read');
+		await popupPage.close();
+
+		await expect(spaPage).toHaveURL(/spa\/reader-1\.html$/);
+		await waitForExtensionReady(spaPage);
+
+		await optionsPage.close();
+	});
 });
 
 async function getTargetTabId(extensionPage: Page) {

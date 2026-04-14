@@ -19,6 +19,7 @@ const AUTO_NEXT_DELAY_MS = 3000;
 const CHAPTER_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 6;
 const AUTO_SCROLL_PX_PER_SECOND = 120;
 const AUTO_SCROLL_INTERVAL_MS = 16;
+const LOCATION_SYNC_INTERVAL_MS = 250;
 
 const globalShortcuts = [
 	{ key: '? / h', description: 'Mostrar u ocultar ayuda' },
@@ -146,11 +147,16 @@ const runtime = {
 	restoreToastShown: false,
 	resumeGuardUntil: 0,
 	featuresReady: false,
-	mapper: null
+	mapper: null,
+	lastResumeDraft: null,
+	lastKnownHref: '',
+	locationSyncReady: false,
+	locationSyncTimer: 0
 };
 
 document.addEventListener('keydown', handleKeydown);
 setupRuntimeMessaging();
+setupLocationSync();
 
 queueMicrotask(bootstrap);
 
@@ -260,7 +266,103 @@ function bootstrap() {
 
 async function initRuntime() {
 	await loadPersistedState();
+	runtime.lastKnownHref = getComparableHref(window.location.href);
 	setRuntimeSite(getActiveSite(window.location));
+}
+
+function setupLocationSync() {
+	if (runtime.locationSyncReady) return;
+	runtime.locationSyncReady = true;
+	runtime.lastKnownHref = getComparableHref(window.location.href);
+
+	window.addEventListener('popstate', () => {
+		scheduleLocationCheck([0, 120, 400]);
+	});
+	document.addEventListener('click', handlePotentialRouteClick, true);
+
+	if (!runtime.locationSyncTimer) {
+		runtime.locationSyncTimer = window.setInterval(() => {
+			void handleLocationChange();
+		}, LOCATION_SYNC_INTERVAL_MS);
+	}
+
+	const observer = new MutationObserver(() => {
+		if (getComparableHref(window.location.href) !== runtime.lastKnownHref) {
+			scheduleLocationCheck([0, 120]);
+		}
+	});
+
+	observer.observe(document.documentElement, {
+		childList: true,
+		subtree: true
+	});
+}
+
+function handlePotentialRouteClick(event) {
+	if (!runtime.site) return;
+	if (!(event.target instanceof Element)) return;
+
+	const target = event.target.closest('a[href], [data-chapter-href]');
+	if (!(target instanceof Element)) return;
+	if (document.getElementById(MAPPER_OVERLAY_ID)?.contains(target)) return;
+	if (document.getElementById(HELP_OVERLAY_ID)?.contains(target)) return;
+	if (document.getElementById(CHAPTER_MAP_OVERLAY_ID)?.contains(target)) return;
+
+	const targetHref = getComparableHref(getClickTargetHref(target));
+	if (!targetHref) return;
+	if (!isReaderRouteNavigationTarget(targetHref)) return;
+
+	persistResumeForRouteTransition(getCurrentChapterHref());
+	scheduleLocationCheck([0, 120, 400, 900]);
+}
+
+function persistResumeForRouteTransition(previousHref) {
+	if (!runtime.site || !previousHref) return;
+	if (!areComparableHrefsEqual(previousHref, getCurrentChapterHref())) return;
+
+	try {
+		const entry = updateResumeDraft();
+		if (entry) {
+			void persistResumeEntry(entry);
+		}
+	} catch {
+		return;
+	}
+}
+
+function scheduleLocationCheck(delays) {
+	delays.forEach(delay => {
+		window.setTimeout(() => {
+			void handleLocationChange();
+		}, delay);
+	});
+}
+
+async function handleLocationChange() {
+	const nextHref = getComparableHref(window.location.href);
+	if (!nextHref || nextHref === runtime.lastKnownHref) return;
+
+	persistResumeDraftForHref(runtime.lastKnownHref);
+	runtime.lastKnownHref = nextHref;
+	runtime.restoreToastShown = false;
+	window.clearTimeout(runtime.saveTimer);
+	runtime.saveTimer = 0;
+	runtime.lastResumeDraft = null;
+
+	setRuntimeSite(getActiveSite(window.location));
+
+	if (!runtime.site) return;
+	scheduleNavigationRefresh([80, 240, 800, 1800]);
+}
+
+function persistResumeDraftForHref(previousHref) {
+	if (!previousHref) return;
+
+	const entry = runtime.lastResumeDraft;
+	if (!entry?.chapterHref) return;
+	if (!areComparableHrefsEqual(entry.chapterHref, previousHref)) return;
+
+	void persistResumeEntry(entry);
 }
 
 function activateSiteFeatures() {
@@ -278,6 +380,7 @@ function activateSiteFeatures() {
 	if (shouldRestoreResume()) {
 		runtime.resumeGuardUntil = Date.now() + 5000;
 	}
+	updateResumeDraft();
 	scheduleResumeRestore();
 	document.documentElement.dataset.readerHotkeysReady = 'true';
 }
@@ -666,6 +769,7 @@ function setupScrollPersistence() {
 }
 
 function handleReaderScroll() {
+	updateResumeDraft();
 	scheduleResumeSave();
 }
 
@@ -685,10 +789,7 @@ function flushResumeSave() {
 	const entry = buildResumeEntry();
 	if (!entry) return Promise.resolve(false);
 
-	runtime.persisted.resume[getResumeKey()] = entry;
-	updateWorkResumeEntry(entry);
-	runtime.persisted.resume = pruneResumeEntries(runtime.persisted.resume);
-	return storage.set({ [STORAGE_KEYS.resume]: runtime.persisted.resume });
+	return persistResumeEntry(entry);
 }
 
 function buildResumeEntry() {
@@ -700,6 +801,7 @@ function buildResumeEntry() {
 	const workKey = getCurrentWorkKey();
 
 	return {
+		storageKey: getResumeKey(),
 		entryType: 'chapter',
 		scrollY,
 		percent,
@@ -711,6 +813,24 @@ function buildResumeEntry() {
 		workKey,
 		chapterHref
 	};
+}
+
+function updateResumeDraft() {
+	const entry = buildResumeEntry();
+	if (!entry) return null;
+
+	runtime.lastResumeDraft = entry;
+	return entry;
+}
+
+function persistResumeEntry(entry) {
+	if (!entry) return Promise.resolve(false);
+
+	runtime.lastResumeDraft = entry;
+	runtime.persisted.resume[entry.storageKey || getResumeKey()] = entry;
+	updateWorkResumeEntry(entry);
+	runtime.persisted.resume = pruneResumeEntries(runtime.persisted.resume);
+	return storage.set({ [STORAGE_KEYS.resume]: runtime.persisted.resume });
 }
 
 function updateWorkResumeEntry(entry) {
@@ -1993,6 +2113,39 @@ function getAbsoluteHref(href) {
 	} catch {
 		return '';
 	}
+}
+
+function getClickTargetHref(target) {
+	if (!target) return '';
+	if (target instanceof HTMLAnchorElement) return target.href;
+	return target.getAttribute?.('data-chapter-href') || target.getAttribute?.('href') || '';
+}
+
+function isReaderRouteNavigationTarget(targetHref) {
+	const comparableHref = getComparableHref(targetHref);
+	if (!comparableHref || areComparableHrefsEqual(comparableHref, getCurrentChapterHref())) {
+		return false;
+	}
+
+	const candidateHrefs = [
+		runtime.site?.getNextHref?.(),
+		runtime.site?.getPrevHref?.(),
+		runtime.site?.getMainHref?.()
+	]
+		.map(href => getComparableHref(getAbsoluteHref(href)))
+		.filter(Boolean);
+
+	if (candidateHrefs.some(candidateHref => areComparableHrefsEqual(candidateHref, comparableHref))) {
+		return true;
+	}
+
+	return runtime.site?.hosts?.includes(window.location.host)
+		&& (
+			matchesPath(getHrefPath(comparableHref), runtime.site.paths)
+			|| comparableHref.includes('/series/')
+			|| comparableHref.includes('/manhwa/')
+			|| comparableHref.includes('/manga/')
+		);
 }
 
 function getWorkResumeKeyFromEntry(entry) {
