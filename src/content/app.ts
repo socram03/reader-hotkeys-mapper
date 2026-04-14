@@ -110,6 +110,7 @@ const sites = {
 		getNextHref: () => getManhwaWebChapterHref('siguiente') || getManhwaWebMainHref(),
 		getPrevHref: () => getManhwaWebChapterHref('anterior'),
 		getMainHref: () => getManhwaWebMainHref(),
+		getWorkKey: location => getManhwaWebWorkKey(location),
 		getFocusCss: () => `
 			body.${FOCUS_CLASS} #disqus_thread,
 			body.${FOCUS_CLASS} .ver_todo,
@@ -695,6 +696,7 @@ function buildResumeEntry() {
 	const percent = maxScroll > 0 ? Number((scrollY / maxScroll).toFixed(4)) : 0;
 	const chapterHref = getCurrentChapterHref();
 	const mainHref = getCurrentMainHref();
+	const workKey = getCurrentWorkKey();
 
 	return {
 		scrollY,
@@ -704,6 +706,7 @@ function buildResumeEntry() {
 		host: window.location.host,
 		siteId: runtime.site?.id || '',
 		mainHref,
+		workKey,
 		chapterHref
 	};
 }
@@ -789,6 +792,14 @@ function getResumeTarget(location) {
 		}
 	}
 
+	const currentWorkKey = getCurrentWorkKey(location);
+	if (currentWorkKey) {
+		const currentWorkKeyMatch = entries.find(entry => normalizeWorkKey(entry.workKey) === currentWorkKey);
+		if (currentWorkKeyMatch) {
+			return { entry: currentWorkKeyMatch, scope: 'work-key' };
+		}
+	}
+
 	return null;
 }
 
@@ -799,7 +810,8 @@ function getMeaningfulResumeEntries() {
 		.filter(entry => {
 			if (!entry || typeof entry !== 'object') return false;
 			if (typeof entry.updatedAt !== 'number' || now - entry.updatedAt > RESUME_MAX_AGE_MS) return false;
-			if (!entry.mainHref || !entry.chapterHref) return false;
+			if (!entry.chapterHref) return false;
+			if (!entry.mainHref && !entry.workKey) return false;
 			return isMeaningfulResumeEntry(entry);
 		})
 		.sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
@@ -1717,6 +1729,13 @@ function getCurrentMainHref() {
 	return getComparableHref(getAbsoluteHref(runtime.site?.getMainHref?.()));
 }
 
+function getCurrentWorkKey(location = window.location) {
+	const site = getResumeSite(location);
+	if (!site?.getWorkKey) return '';
+
+	return normalizeWorkKey(site.getWorkKey(location));
+}
+
 function getCurrentChapterHref() {
 	return getComparableHref(window.location.href);
 }
@@ -1736,6 +1755,10 @@ function getComparableHref(href) {
 function areComparableHrefsEqual(left, right) {
 	if (!left || !right) return false;
 	return getComparableHref(left) === getComparableHref(right);
+}
+
+function normalizeWorkKey(value) {
+	return String(value || '').trim().toLowerCase();
 }
 
 function getReadProgress() {
@@ -1794,10 +1817,37 @@ function getManhwaWebChapterHref(direction) {
 }
 
 function getManhwaWebMainHref() {
-	return findLink(link => {
+	const detectedHref = findLink(link => {
 		const path = getLinkPath(link);
 		return path.startsWith('/manhwa/') || path.startsWith('/manga/');
 	})?.getAttribute('href') || '';
+	if (detectedHref) return detectedHref;
+
+	const workKey = getManhwaWebWorkKey(window.location);
+	return workKey ? `/manhwa/${workKey}` : '';
+}
+
+function getManhwaWebWorkKey(location = window.location) {
+	const pathname = String(location?.pathname || '');
+	const directMatch = pathname.match(/^\/(?:manhwa|manga)\/([^/?#]+)/i);
+	if (directMatch?.[1]) return directMatch[1];
+
+	const readerMatch = pathname.match(/^\/(?:leer|leer_18)\/([^/?#]+)/i);
+	if (!readerMatch?.[1]) return '';
+
+	return normalizeManhwaWebReaderKey(readerMatch[1]);
+}
+
+function normalizeManhwaWebReaderKey(value) {
+	const raw = String(value || '').trim();
+	if (!raw) return '';
+
+	const stripped = raw.replace(/-(\d+(?:\.\d+)?)$/i, '');
+	return stripped || raw;
+}
+
+function getResumeSite(location = window.location) {
+	return runtime.site || getBuiltInHostSite(location) || null;
 }
 
 function findLink(predicate) {
