@@ -54,6 +54,8 @@ bun install
 bun run build
 ```
 
+Los bundles JS generados no se versionan. Ejecuta el build antes de cargar la extension sin empaquetar.
+
 Esto genera:
 
 - `background.js`

@@ -54,6 +54,8 @@ bun install
 bun run build
 ```
 
+The generated JS bundles are not committed. Run the build before loading the unpacked extension.
+
 This generates:
 
 - `background.js`

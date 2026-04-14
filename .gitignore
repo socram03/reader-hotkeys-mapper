@@ -2,5 +2,14 @@ node_modules/
 playwright-report/
 test-results/
 .cache/
+.vscode/
+.idea/
+*.log
+*.tmp
+*.tsbuildinfo
+background.js
+content.js
+options.js
+popup.js
 .DS_Store
 Thumbs.db
