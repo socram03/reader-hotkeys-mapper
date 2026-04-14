@@ -95,6 +95,27 @@ test.describe.serial('Reader Hotkeys extension', () => {
 			return (window.scrollY || 0) > 500;
 		});
 
+		await readerPage.goto(`${baseURL}/custom/reader-0.html`);
+		await ensureReaderInTab(optionsPage, targetTabId);
+		await readerPage.bringToFront();
+		await waitForExtensionReady(readerPage);
+		await readerPage.evaluate(() => {
+			window.scrollTo({ top: 900, behavior: 'auto' });
+		});
+		await readerPage.waitForTimeout(500);
+		await readerPage.keyboard.press('m');
+		await expect(readerPage).toHaveURL(/series\.html$/);
+
+		const latestReadPopup = await context.newPage();
+		await latestReadPopup.goto(`chrome-extension://${extensionId}/popup.html`);
+		await expect(latestReadPopup.locator('#resume-last-read')).toBeEnabled();
+		await expect(latestReadPopup.locator('.status-card')).toContainText('Custom Reader 1');
+		await latestReadPopup.click('#resume-last-read');
+		await latestReadPopup.close();
+
+		await expect(readerPage).toHaveURL(/reader-1\.html$/);
+		await waitForExtensionReady(readerPage);
+
 		await optionsPage.bringToFront();
 		const latestReadsDownload = optionsPage.waitForEvent('download');
 		await optionsPage.click('#export-latest-reads');

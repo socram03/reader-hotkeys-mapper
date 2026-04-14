@@ -29,6 +29,7 @@ export type MappingState = {
 
 export type ResumeEntry = {
 	storageKey: string;
+	entryType?: 'chapter' | 'work';
 	scrollY: number;
 	percent: number;
 	updatedAt: number;

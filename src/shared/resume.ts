@@ -20,21 +20,40 @@ export function buildLatestReadsFilename(date = new Date()): string {
 
 export function buildLatestReadExport(entries: ResumeEntry[]): LatestReadExport {
 	const normalizedEntries = normalizeResumeEntries(entries).filter(isMeaningfulResumeEntry);
+	const chapterEntries = normalizedEntries.filter(entry => normalizeResumeEntryType(entry.entryType) === 'chapter');
+	const workEntries = normalizedEntries.filter(entry => normalizeResumeEntryType(entry.entryType) === 'work');
+	const trackedEntriesByWork = new Map<string, number>();
+	const latestChapterEntriesByWork = new Map<string, ResumeEntry>();
 	const latestEntriesByWork = new Map<string, { entry: ResumeEntry; trackedEntries: number }>();
 
-	normalizedEntries.forEach(entry => {
+	chapterEntries.forEach(entry => {
+		const workId = getResumeWorkId(entry);
+		trackedEntriesByWork.set(workId, (trackedEntriesByWork.get(workId) || 0) + 1);
+
+		const existingEntry = latestChapterEntriesByWork.get(workId);
+		if (!existingEntry || entry.updatedAt > existingEntry.updatedAt) {
+			latestChapterEntriesByWork.set(workId, entry);
+		}
+	});
+
+	latestChapterEntriesByWork.forEach((entry, workId) => {
+		latestEntriesByWork.set(workId, {
+			entry,
+			trackedEntries: trackedEntriesByWork.get(workId) || 1
+		});
+	});
+
+	workEntries.forEach(entry => {
 		const workId = getResumeWorkId(entry);
 		const existing = latestEntriesByWork.get(workId);
+		const trackedEntries = trackedEntriesByWork.get(workId) || existing?.trackedEntries || 1;
 
-		if (!existing) {
-			latestEntriesByWork.set(workId, { entry, trackedEntries: 1 });
+		if (!existing || entry.updatedAt > existing.entry.updatedAt || normalizeResumeEntryType(existing.entry.entryType) !== 'work') {
+			latestEntriesByWork.set(workId, { entry, trackedEntries });
 			return;
 		}
 
-		existing.trackedEntries += 1;
-		if (entry.updatedAt > existing.entry.updatedAt) {
-			existing.entry = entry;
-		}
+		existing.trackedEntries = trackedEntries;
 	});
 
 	const exportedAt = Date.now();
@@ -91,6 +110,7 @@ function normalizeResumeEntry(storageKey: string, value: unknown): ResumeEntry |
 
 	return {
 		storageKey: String(storageKey || '').trim() || chapterHref,
+		entryType: normalizeResumeEntryType(value.entryType),
 		scrollY: toNumber(value.scrollY),
 		percent: clampPercent(toNumber(value.percent)),
 		updatedAt: toTimestamp(value.updatedAt),
@@ -107,6 +127,10 @@ function getResumeWorkId(entry: ResumeEntry): string {
 	if (entry.mainHref) return `href:${entry.mainHref}`;
 	if (entry.workKey) return `work:${entry.siteId || entry.host}:${entry.workKey}`;
 	return `chapter:${entry.chapterHref}`;
+}
+
+function normalizeResumeEntryType(value: unknown): ResumeEntry['entryType'] {
+	return value === 'work' ? 'work' : 'chapter';
 }
 
 function isMeaningfulResumeEntry(entry: ResumeEntry): boolean {

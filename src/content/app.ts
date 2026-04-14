@@ -686,6 +686,7 @@ function flushResumeSave() {
 	if (!entry) return;
 
 	runtime.persisted.resume[getResumeKey()] = entry;
+	updateWorkResumeEntry(entry);
 	runtime.persisted.resume = pruneResumeEntries(runtime.persisted.resume);
 	storage.set({ [STORAGE_KEYS.resume]: runtime.persisted.resume });
 }
@@ -699,6 +700,7 @@ function buildResumeEntry() {
 	const workKey = getCurrentWorkKey();
 
 	return {
+		entryType: 'chapter',
 		scrollY,
 		percent,
 		updatedAt: Date.now(),
@@ -709,6 +711,85 @@ function buildResumeEntry() {
 		workKey,
 		chapterHref
 	};
+}
+
+function updateWorkResumeEntry(entry) {
+	const workResumeKey = getWorkResumeKeyFromEntry(entry);
+	if (!workResumeKey) return;
+
+	const existingEntry = runtime.persisted.resume[workResumeKey];
+	if (!shouldUpdateWorkResume(existingEntry, entry)) return;
+
+	runtime.persisted.resume[workResumeKey] = {
+		...entry,
+		entryType: 'work'
+	};
+}
+
+function shouldUpdateWorkResume(existingEntry, nextEntry) {
+	if (!nextEntry?.chapterHref || !isMeaningfulResumeEntry(nextEntry)) return false;
+	if (!existingEntry || typeof existingEntry !== 'object') return true;
+	if (areComparableHrefsEqual(existingEntry.chapterHref, nextEntry.chapterHref)) return true;
+
+	const prevChapterHref = getCurrentPrevChapterHref();
+	if (prevChapterHref && areComparableHrefsEqual(prevChapterHref, existingEntry.chapterHref)) {
+		return true;
+	}
+
+	const nextChapterHref = getCurrentNextChapterHref();
+	if (nextChapterHref && areComparableHrefsEqual(nextChapterHref, existingEntry.chapterHref)) {
+		return false;
+	}
+
+	const chapterOrderDelta = compareResumeChapterOrder(nextEntry, existingEntry);
+	if (chapterOrderDelta > 0) return true;
+	if (chapterOrderDelta < 0) return false;
+
+	return false;
+}
+
+function compareResumeChapterOrder(leftEntry, rightEntry) {
+	const leftOrder = inferResumeChapterOrder(leftEntry);
+	const rightOrder = inferResumeChapterOrder(rightEntry);
+	if (!Number.isFinite(leftOrder) || !Number.isFinite(rightOrder)) return 0;
+	if (leftOrder === rightOrder) return 0;
+	return leftOrder > rightOrder ? 1 : -1;
+}
+
+function inferResumeChapterOrder(entry) {
+	const candidates = [
+		String(entry?.title || ''),
+		getHrefLastSegment(entry?.chapterHref)
+	];
+
+	for (const candidate of candidates) {
+		const order = extractChapterOrder(candidate);
+		if (Number.isFinite(order)) return order;
+	}
+
+	return null;
+}
+
+function extractChapterOrder(value) {
+	const text = String(value || '').trim();
+	if (!text) return null;
+
+	const explicitMatch = text.match(/(?:cap(?:itulo)?|chapter|ch|episodio|episode|ep|reader)\s*[-#: ]*\s*(\d+(?:[.,]\d+)?)/i);
+	if (explicitMatch?.[1]) {
+		return parseChapterOrderValue(explicitMatch[1]);
+	}
+
+	const reverseMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(?:cap(?:itulo)?|chapter|ch|episodio|episode|ep)/i);
+	if (reverseMatch?.[1]) {
+		return parseChapterOrderValue(reverseMatch[1]);
+	}
+
+	return null;
+}
+
+function parseChapterOrderValue(value) {
+	const parsedValue = Number(String(value || '').replace(',', '.'));
+	return Number.isFinite(parsedValue) ? parsedValue : null;
 }
 
 function scheduleResumeRestore() {
@@ -775,7 +856,41 @@ function resumeLastRead(manual) {
 }
 
 function getResumeTarget(location) {
-	const entries = getMeaningfulResumeEntries();
+	const workTarget = findResumeTargetInEntries(getMeaningfulWorkResumeEntries(), location);
+	if (workTarget) {
+		return {
+			...workTarget,
+			scope: workTarget.scope === 'work-key' ? 'work-bookmark-key' : 'work-bookmark'
+		};
+	}
+
+	return findResumeTargetInEntries(getMeaningfulResumeEntries(), location);
+}
+
+function getMeaningfulResumeEntries() {
+	return getMeaningfulResumeEntriesByType('chapter');
+}
+
+function getMeaningfulWorkResumeEntries() {
+	return getMeaningfulResumeEntriesByType('work');
+}
+
+function getMeaningfulResumeEntriesByType(entryType) {
+	const now = Date.now();
+
+	return Object.values(runtime.persisted.resume || {})
+		.filter(entry => {
+			if (!entry || typeof entry !== 'object') return false;
+			if (typeof entry.updatedAt !== 'number' || now - entry.updatedAt > RESUME_MAX_AGE_MS) return false;
+			if (!entry.chapterHref) return false;
+			if (!entry.mainHref && !entry.workKey) return false;
+			if (normalizeResumeEntryType(entry.entryType) !== entryType) return false;
+			return isMeaningfulResumeEntry(entry);
+		})
+		.sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
+}
+
+function findResumeTargetInEntries(entries, location) {
 	if (!entries.length) return null;
 
 	const currentPageHref = getComparableHref(location.href);
@@ -801,20 +916,6 @@ function getResumeTarget(location) {
 	}
 
 	return null;
-}
-
-function getMeaningfulResumeEntries() {
-	const now = Date.now();
-
-	return Object.values(runtime.persisted.resume || {})
-		.filter(entry => {
-			if (!entry || typeof entry !== 'object') return false;
-			if (typeof entry.updatedAt !== 'number' || now - entry.updatedAt > RESUME_MAX_AGE_MS) return false;
-			if (!entry.chapterHref) return false;
-			if (!entry.mainHref && !entry.workKey) return false;
-			return isMeaningfulResumeEntry(entry);
-		})
-		.sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0));
 }
 
 function isMeaningfulResumeEntry(entry) {
@@ -1729,6 +1830,14 @@ function getCurrentMainHref() {
 	return getComparableHref(getAbsoluteHref(runtime.site?.getMainHref?.()));
 }
 
+function getCurrentPrevChapterHref() {
+	return getComparableHref(getAbsoluteHref(runtime.site?.getPrevHref?.()));
+}
+
+function getCurrentNextChapterHref() {
+	return getComparableHref(getAbsoluteHref(runtime.site?.getNextHref?.()));
+}
+
 function getCurrentWorkKey(location = window.location) {
 	const site = getResumeSite(location);
 	if (!site?.getWorkKey) return '';
@@ -1759,6 +1868,10 @@ function areComparableHrefsEqual(left, right) {
 
 function normalizeWorkKey(value) {
 	return String(value || '').trim().toLowerCase();
+}
+
+function normalizeResumeEntryType(value) {
+	return value === 'work' ? 'work' : 'chapter';
 }
 
 function getReadProgress() {
@@ -1877,6 +1990,30 @@ function getAbsoluteHref(href) {
 
 	try {
 		return new URL(href, window.location.origin).href;
+	} catch {
+		return '';
+	}
+}
+
+function getWorkResumeKeyFromEntry(entry) {
+	if (!entry) return '';
+	if (entry.mainHref) {
+		return `work:${entry.siteId}:${entry.mainHref}`;
+	}
+
+	if (entry.workKey) {
+		return `work:${entry.siteId || entry.host}:${normalizeWorkKey(entry.workKey)}`;
+	}
+
+	return '';
+}
+
+function getHrefLastSegment(href) {
+	if (!href) return '';
+
+	try {
+		const pathname = new URL(href, window.location.origin).pathname;
+		return pathname.split('/').filter(Boolean).pop() || '';
 	} catch {
 		return '';
 	}
