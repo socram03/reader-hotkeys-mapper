@@ -5,6 +5,7 @@ import {
 	getMessage,
 	loadLanguage,
 	loadLatestReadExport,
+	loadPrivacySettings,
 	sendReaderMessage
 } from '../shared';
 import type { Language, LatestReadExportEntry, ReaderStatus } from '../shared';
@@ -16,6 +17,7 @@ export function ContinueReadingApp() {
 	const [status, setStatus] = useState<ReaderStatus | null>(null);
 	const [entries, setEntries] = useState<LatestReadExportEntry[]>([]);
 	const [language, setLanguage] = useState<Language>('es');
+	const [streamerMode, setStreamerMode] = useState(false);
 	const [query, setQuery] = useState('');
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
@@ -44,8 +46,9 @@ export function ContinueReadingApp() {
 
 	async function initialize() {
 		try {
-			const nextLanguage = await loadLanguage();
+			const [nextLanguage, nextPrivacySettings] = await Promise.all([loadLanguage(), loadPrivacySettings()]);
 			setLanguage(nextLanguage);
+			setStreamerMode(nextPrivacySettings.streamerMode);
 			await refreshEntries();
 
 			const tab = await getBestTargetTab();
@@ -78,7 +81,7 @@ export function ContinueReadingApp() {
 				await chrome.tabs.create({ url: entry.chapterHref });
 			}
 
-			setNotice(t('continue.opened', { title: getEntryTitle(entry) }));
+			setNotice(t('continue.opened', { title: streamerMode ? t('privacy.hiddenReading') : getEntryTitle(entry) }));
 			setError('');
 		} catch (nextError) {
 			setNotice('');
@@ -151,8 +154,8 @@ export function ContinueReadingApp() {
 					<article key={entry.workId} class="continue-card">
 						<div class="continue-card-main">
 							<div>
-								<h2>{getEntryTitle(entry)}</h2>
-								<p>{entry.host} · {formatDate(entry.updatedAt)}</p>
+								<h2>{streamerMode ? t('privacy.hiddenReading') : getEntryTitle(entry)}</h2>
+								<p>{streamerMode ? t('privacy.hiddenSite') : entry.host} · {formatDate(entry.updatedAt)}</p>
 							</div>
 							<span class="progress-value">{Math.round(entry.progressPercent)}%</span>
 						</div>
@@ -161,7 +164,7 @@ export function ContinueReadingApp() {
 						</div>
 						<div class="continue-card-meta">
 							<span>{entry.trackedEntries} {t('continue.savedEntries')}</span>
-							<span>{entry.chapterHref}</span>
+							<span>{streamerMode ? t('privacy.hiddenUrl') : entry.chapterHref}</span>
 						</div>
 						<div class="continue-card-actions">
 							<button

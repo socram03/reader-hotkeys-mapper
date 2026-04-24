@@ -5,6 +5,7 @@ import {
 	getMessage,
 	loadLanguage,
 	loadLatestReadExport,
+	loadPrivacySettings,
 	sendReaderMessage
 } from '../shared';
 import type { Language, LatestReadExportEntry, ReaderStatus } from '../shared';
@@ -16,6 +17,7 @@ export function PopupApp() {
 	const [status, setStatus] = useState<ReaderStatus | null>(null);
 	const [continueReading, setContinueReading] = useState<LatestReadExportEntry[]>([]);
 	const [language, setLanguage] = useState<Language>('es');
+	const [streamerMode, setStreamerMode] = useState(false);
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
 	const t = (key: Parameters<typeof getMessage>[1], values?: Parameters<typeof getMessage>[2]) => getMessage(language, key, values);
@@ -26,8 +28,9 @@ export function PopupApp() {
 
 	async function initialize() {
 		try {
-			const nextLanguage = await loadLanguage();
+			const [nextLanguage, nextPrivacySettings] = await Promise.all([loadLanguage(), loadPrivacySettings()]);
 			setLanguage(nextLanguage);
+			setStreamerMode(nextPrivacySettings.streamerMode);
 			const tab = await getBestTargetTab();
 			setTargetTab(tab);
 			if (!tab?.id) {
@@ -96,17 +99,26 @@ export function PopupApp() {
 	const autoNextActive = Boolean(status?.settings?.autoNext);
 	const autoScrollSpeed = Number(status?.settings?.autoScrollSpeed) || 0;
 	const hasLastRead = Boolean(status?.lastReadAvailable && status?.lastReadHref);
-	const lastReadLabel = status?.lastReadTitle || t('popup.noProgress');
+	const lastReadLabel = streamerMode && hasLastRead ? t('privacy.hiddenReading') : status?.lastReadTitle || t('popup.noProgress');
 
 	const activationMessage = hasCandidateMapping && !matchedMappingEnabled
 		? t('popup.customSiteDisabled')
 			: hasReader
-				? status?.siteLabel || t('popup.readerDetected')
+				? streamerMode ? t('privacy.hiddenContext') : status?.siteLabel || t('popup.readerDetected')
 			: hasMappingCandidate
 				? t('popup.probableReader')
 			: hasSupportedSite
-				? t('popup.supportedOutsideReader', { site: status?.siteLabel || t('popup.statusSupported') })
+				? streamerMode ? t('privacy.hiddenContext') : t('popup.supportedOutsideReader', { site: status?.siteLabel || t('popup.statusSupported') })
 				: t('popup.noActiveMapping');
+	const displayHost = streamerMode ? t('privacy.hiddenSite') : status?.host || '—';
+	const displayPath = streamerMode ? t('privacy.hiddenPath') : status?.pathname || '';
+	const latestRead = continueReading[0];
+	const displayContinueTitle = streamerMode
+		? t('privacy.hiddenReading')
+		: latestRead?.chapterTitle || latestRead?.workTitle || latestRead?.host || '';
+	const displayContinueMeta = streamerMode
+		? `${t('privacy.hiddenSite')} · ${Math.round(latestRead?.progressPercent || 0)}%`
+		: `${latestRead?.host || ''} · ${Math.round(latestRead?.progressPercent || 0)}%`;
 
 	return (
 		<main class="popup">
@@ -133,8 +145,8 @@ export function PopupApp() {
 				<section class="status-card">
 					<div class="status-header">
 						<div>
-							<div class="status-host">{status?.host || '—'}</div>
-							{status?.pathname && <div class="status-path">{status.pathname}</div>}
+							<div class="status-host">{displayHost}</div>
+							{displayPath && <div class="status-path">{displayPath}</div>}
 						</div>
 						<span class={`led ${hasSupportedSite ? 'on' : 'off'}`}>
 							{hasReader ? t('popup.statusActive') : hasSupportedSite ? t('popup.statusSupported') : t('popup.statusInactive')}
@@ -149,7 +161,7 @@ export function PopupApp() {
 							<span class="meta-label">{t('popup.mappings')}</span>
 							<span class={`meta-value ${!status?.hostMappingCount ? 'dim' : ''}`}>
 								{t('popup.mappingsInHost', { count: status?.hostMappingCount || 0 })}
-								{status?.matchedMappingLabel ? ` · ${status.matchedMappingLabel}` : ''}
+								{!streamerMode && status?.matchedMappingLabel ? ` · ${status.matchedMappingLabel}` : ''}
 							</span>
 						</div>
 						<div class="meta-row">
@@ -234,14 +246,12 @@ export function PopupApp() {
 				</button>
 			</section>
 
-			{continueReading.length ? (
+			{latestRead ? (
 				<section class="continue-reading">
 					<div class="continue-reading-title">{t('popup.continueReading')}</div>
 					<div id="continue-reading-list" class="continue-reading-summary">
-						<span class="continue-reading-main">{continueReading[0].chapterTitle || continueReading[0].workTitle || continueReading[0].host}</span>
-						<span class="continue-reading-meta">
-							{continueReading[0].host} · {Math.round(continueReading[0].progressPercent)}%
-						</span>
+						<span class="continue-reading-main">{displayContinueTitle}</span>
+						<span class="continue-reading-meta">{displayContinueMeta}</span>
 					</div>
 					<button id="open-continue-reading" class="key-btn full-width" type="button" onClick={openContinueReadingPage}>
 						{t('popup.openContinueReading')}

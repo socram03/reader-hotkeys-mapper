@@ -160,7 +160,8 @@ const runtime = {
 		autoNext: false,
 		shortcuts: normalizeShortcutSettings(null),
 		readerMode: DEFAULT_READER_MODE as ReaderModeSettings,
-		language: 'es' as Language
+		language: 'es' as Language,
+		streamerMode: false
 	},
 	nextHref: '',
 	prefetchedHref: '',
@@ -182,6 +183,7 @@ const runtime = {
 
 document.addEventListener('keydown', handleKeydown);
 setupRuntimeMessaging();
+setupStorageChangeListener();
 setupLocationSync();
 
 queueMicrotask(bootstrap);
@@ -194,6 +196,22 @@ function setupRuntimeMessaging() {
 
 		handleRuntimeMessage(message).then(sendResponse);
 		return true;
+	});
+}
+
+function setupStorageChangeListener() {
+	if (typeof chrome === 'undefined' || !chrome.storage?.onChanged) return;
+
+	chrome.storage.onChanged.addListener(changes => {
+		if (changes[STORAGE_KEYS.settings]) {
+			runtime.persisted.settings = changes[STORAGE_KEYS.settings].newValue || {};
+			if (runtime.site) applyStoredSettings();
+		}
+
+		if (changes[STORAGE_KEYS.userMappings]) {
+			runtime.persisted.userMappings = normalizeUserMappings(changes[STORAGE_KEYS.userMappings].newValue);
+			setRuntimeSite(getActiveSite(window.location));
+		}
 	});
 }
 
@@ -303,7 +321,8 @@ function getReaderStatus() {
 		settings: {
 			focusMode: runtime.settings.focusMode,
 			autoNext: runtime.settings.autoNext,
-			autoScrollSpeed: runtime.autoScrollSpeed
+			autoScrollSpeed: runtime.autoScrollSpeed,
+			streamerMode: runtime.settings.streamerMode
 		},
 		overlays: {
 			help: Boolean(document.getElementById(HELP_OVERLAY_ID)),
@@ -499,6 +518,7 @@ function applyStoredSettings() {
 	runtime.settings.autoNext = Boolean(siteSettings.autoNext);
 	runtime.settings.readerMode = normalizeReaderModeSettings(globalSettings.readerMode);
 	runtime.settings.language = normalizeLanguage(globalSettings.language);
+	runtime.settings.streamerMode = Boolean(globalSettings.streamerMode);
 	runtime.settings.shortcuts = {
 		...normalizeShortcutSettings(globalSettings.shortcuts),
 		...normalizeShortcutOverrides(siteShortcutOverrides)
@@ -691,6 +711,22 @@ function isEditableTarget(target) {
 
 function t(key, values = {}) {
 	return getMessage(runtime.settings.language || 'es', key, values);
+}
+
+function isStreamerMode() {
+	return Boolean(runtime.settings.streamerMode);
+}
+
+function displaySiteName(fallback = '') {
+	return isStreamerMode() ? t('privacy.hiddenSite') : fallback || runtime.site?.label || window.location.host;
+}
+
+function displayReadingTitle(fallback = '') {
+	return isStreamerMode() ? t('privacy.hiddenReading') : fallback;
+}
+
+function displayChapterLabel(label, index) {
+	return isStreamerMode() ? t('privacy.hiddenChapter', { index: index + 1 }) : label;
 }
 
 function scrollByViewport(multiplier) {
@@ -1108,7 +1144,7 @@ async function resumeLastRead(manual) {
 	}
 
 	if (manual) {
-		showToast(t('content.resuming', { title: target.entry.title || t('content.latestChapter') }), 1200);
+		showToast(t('content.resuming', { title: displayReadingTitle(target.entry.title || t('content.latestChapter')) }), 1200);
 	}
 
 	if ('repaired' in target && target.repaired) {
@@ -1320,7 +1356,7 @@ function toggleShortcutHelp() {
 			<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.06);">
 				<div>
 					<div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#FFBA08; font-family:'Chakra Petch',sans-serif;">${t('content.helpTitle')}</div>
-					<div style="font-size:17px; font-weight:700; font-family:'Chakra Petch',sans-serif; margin-top:3px;">${runtime.site?.label || window.location.host}</div>
+					<div style="font-size:17px; font-weight:700; font-family:'Chakra Petch',sans-serif; margin-top:3px;">${displaySiteName()}</div>
 				</div>
 				<button type="button" data-close-help="true" style="appearance:none; background:rgba(255,255,255,0.06); color:#7a787f; border:1px solid rgba(255,255,255,0.06); border-radius:4px; width:30px; height:30px; cursor:pointer; font-size:14px; line-height:1; transition:color .15s;">×</button>
 			</div>
@@ -1421,7 +1457,7 @@ function openMapper() {
 				</div>
 				<div>
 					<div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#FFBA08; font-family:'Chakra Petch',sans-serif;">${t('content.mapperTitle')}</div>
-					<div style="font-size:14px; font-weight:700; font-family:'Chakra Petch',sans-serif; margin-top:2px;">${window.location.host}</div>
+					<div style="font-size:14px; font-weight:700; font-family:'Chakra Petch',sans-serif; margin-top:2px;">${displaySiteName(window.location.host)}</div>
 				</div>
 			</div>
 			<button type="button" data-mapper-cancel="true" style="appearance:none; background:rgba(255,255,255,0.06); color:#7a787f; border:1px solid rgba(255,255,255,0.06); border-radius:4px; width:28px; height:28px; cursor:pointer; font-size:13px; line-height:1;">×</button>
@@ -1560,12 +1596,13 @@ async function finishMapper() {
 	}
 
 	const readingPrefix = inferReadingPrefix(actions);
-	const label = prompt(t('content.mapperPrompt'), window.location.host) || window.location.host;
+	const defaultLabel = isStreamerMode() ? t('privacy.hiddenMapping') : window.location.host;
+	const label = prompt(t('content.mapperPrompt'), defaultLabel) || defaultLabel;
 
 	const mappingEntry = {
 		id: buildMappingId(window.location.host, readingPrefix),
 		host: window.location.host,
-		label: label.trim() || window.location.host,
+		label: label.trim() || defaultLabel,
 		enabled: true,
 		hostAliases: [],
 		readingPrefix,
@@ -1980,7 +2017,7 @@ function openChapterMap() {
 			<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px 20px; border-bottom:1px solid rgba(255,255,255,0.06);">
 				<div>
 					<div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#FFBA08; font-family:'Chakra Petch',sans-serif;">${t('content.chapterMapTitle')}</div>
-					<div style="font-size:16px; font-weight:700; font-family:'Chakra Petch',sans-serif; margin-top:3px;">${runtime.site.label}</div>
+					<div style="font-size:16px; font-weight:700; font-family:'Chakra Petch',sans-serif; margin-top:3px;">${displaySiteName(runtime.site.label)}</div>
 				</div>
 				<button type="button" data-close-chapter-map="true" style="appearance:none; background:rgba(255,255,255,0.06); color:#7a787f; border:1px solid rgba(255,255,255,0.06); border-radius:4px; width:30px; height:30px; cursor:pointer; font-size:14px; line-height:1;">×</button>
 			</div>
@@ -2083,14 +2120,14 @@ function renderChapterResults(overlay, chapters) {
 		return;
 	}
 
-	results.innerHTML = chapters.map(chapter => {
+	results.innerHTML = chapters.map((chapter, index) => {
 		const isCurrent = chapter.href === window.location.href;
 		const bg = isCurrent ? 'rgba(255,186,8,0.12)' : 'rgba(255,255,255,0.03)';
 		const border = isCurrent ? 'rgba(255,186,8,0.3)' : 'rgba(255,255,255,0.06)';
 		const color = isCurrent ? '#FFBA08' : '#e8e6e1';
 		return `
 			<button type="button" data-chapter-href="${escapeHtml(chapter.href)}" style="appearance:none; text-align:left; width:100%; background:${bg}; color:${color}; border:1px solid ${border}; border-radius:4px; padding:10px 12px; cursor:pointer; font:12px/1.4 'IBM Plex Mono',monospace; transition:background .12s,border-color .12s;">
-				${isCurrent ? '▸ ' : ''}${escapeHtml(chapter.label)}
+				${isCurrent ? '▸ ' : ''}${escapeHtml(displayChapterLabel(chapter.label, index))}
 			</button>
 		`;
 	}).join('');

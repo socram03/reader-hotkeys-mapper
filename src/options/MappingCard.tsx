@@ -8,6 +8,7 @@ import { ShortcutCaptureInput } from './ShortcutCaptureInput';
 type MappingCardProps = {
 	entry: MappingEntry;
 	language: Language;
+	streamerMode?: boolean;
 	onFieldChange: (mappingId: string, field: string, value: string | boolean) => void;
 	onSave: (mappingId: string) => void;
 	onDelete: (mappingId: string) => void;
@@ -17,9 +18,13 @@ type MappingCardProps = {
 };
 
 export function MappingCard(props: MappingCardProps) {
-	const { entry, language, onFieldChange, onSave, onDelete, onDuplicate, onMigrate, onValidate } = props;
+	const { entry, language, streamerMode = false, onFieldChange, onSave, onDelete, onDuplicate, onMigrate, onValidate } = props;
 	const [collapsed, setCollapsed] = useState(true);
 	const t = (key: Parameters<typeof getMessage>[1], values?: Parameters<typeof getMessage>[2]) => getMessage(language, key, values);
+	const sensitiveClass = streamerMode ? 'redacted-control' : '';
+	const displayLabel = streamerMode ? t('privacy.hiddenMapping') : entry.label;
+	const displayHost = streamerMode ? t('privacy.hiddenSite') : entry.host;
+	const displayPrefix = streamerMode ? t('privacy.hiddenPath') : entry.readingPrefix;
 
 	return (
 		<article class={`mapping-card ${collapsed ? 'collapsed' : ''}`} data-mapping-id={entry.id}>
@@ -37,10 +42,10 @@ export function MappingCard(props: MappingCardProps) {
 					<div>
 						<h2>
 							<span class={`mapping-status-dot ${entry.enabled !== false ? 'on' : 'off'}`} />
-							{entry.label}
+							{displayLabel}
 						</h2>
 						<p class="mapping-card-subtitle">
-							{entry.host} · {entry.readingPrefix}
+							{displayHost} · {displayPrefix}
 							{collapsed && (
 								<span class="mapping-card-summary">
 									{' · '}{entry.enabled !== false ? t('mapping.statusActive') : t('mapping.statusInactive')}
@@ -79,10 +84,10 @@ export function MappingCard(props: MappingCardProps) {
 				{/* Identity fields */}
 				<div class="field-grid cols-2">
 					<Field label={t('mapping.label')}>
-						<input type="text" data-input="label" value={entry.label} onInput={handleText(entry.id, 'label', onFieldChange)} />
+						<input class={sensitiveClass} type="text" data-input="label" value={entry.label} onInput={handleText(entry.id, 'label', onFieldChange)} />
 					</Field>
 					<Field label={t('mapping.mainHost')}>
-						<input type="text" data-input="host" value={entry.host} placeholder="example.com" onInput={handleText(entry.id, 'host', onFieldChange)} />
+						<input class={sensitiveClass} type="text" data-input="host" value={entry.host} placeholder="example.com" onInput={handleText(entry.id, 'host', onFieldChange)} />
 					</Field>
 				</div>
 
@@ -90,6 +95,7 @@ export function MappingCard(props: MappingCardProps) {
 					<Field label={t('mapping.readingPrefix')}>
 						<input
 							type="text"
+							class={sensitiveClass}
 							data-input="readingPrefix"
 							value={entry.readingPrefix}
 							placeholder="/leer/"
@@ -97,7 +103,7 @@ export function MappingCard(props: MappingCardProps) {
 						/>
 					</Field>
 					<Field label={t('mapping.internalId')}>
-						<input type="text" data-input="id" value={entry.id} disabled />
+						<input class={sensitiveClass} type="text" data-input="id" value={entry.id} disabled />
 					</Field>
 				</div>
 
@@ -125,6 +131,7 @@ export function MappingCard(props: MappingCardProps) {
 					<div class="field-grid cols-2">
 						<Field label={t('mapping.compatibleHosts')}>
 							<textarea
+								class={sensitiveClass}
 								data-input="hostAliases"
 								value={entry.hostAliases.join('\n')}
 								placeholder={'www.example.com\nreadermirror.net'}
@@ -133,6 +140,7 @@ export function MappingCard(props: MappingCardProps) {
 						</Field>
 						<Field label={t('mapping.compatiblePrefixes')}>
 							<textarea
+								class={sensitiveClass}
 								data-input="readingPrefixes"
 								value={entry.readingPrefixes.join('\n')}
 								placeholder={'/chapter/\n/capitulo/'}
@@ -158,6 +166,7 @@ export function MappingCard(props: MappingCardProps) {
 					action={entry.actions.next}
 					mappingId={entry.id}
 					language={language}
+					streamerMode={streamerMode}
 					onFieldChange={onFieldChange}
 				/>
 				<ActionBlock
@@ -167,6 +176,7 @@ export function MappingCard(props: MappingCardProps) {
 					action={entry.actions.prev}
 					mappingId={entry.id}
 					language={language}
+					streamerMode={streamerMode}
 					onFieldChange={onFieldChange}
 				/>
 				<ActionBlock
@@ -176,6 +186,7 @@ export function MappingCard(props: MappingCardProps) {
 					action={entry.actions.main}
 					mappingId={entry.id}
 					language={language}
+					streamerMode={streamerMode}
 					onFieldChange={onFieldChange}
 				/>
 			</div>
@@ -236,15 +247,18 @@ function ActionBlock(props: {
 	action: MappingEntry['actions']['next'];
 	mappingId: string;
 	language: Language;
+	streamerMode?: boolean;
 	onFieldChange: MappingCardProps['onFieldChange'];
 }) {
-	const { title, arrow, prefix, action, mappingId, language, onFieldChange } = props;
+	const { title, arrow, prefix, action, mappingId, language, streamerMode = false, onFieldChange } = props;
+	const sensitiveClass = streamerMode ? 'redacted-control' : '';
 
 	return (
 		<ActionSection title={title} arrow={arrow}>
 			<div class="field-grid cols-2">
 				<Field label={getMessage(language, 'mapping.cssSelectors')}>
 					<textarea
+						class={sensitiveClass}
 						data-input={`${prefix}.selectors`}
 						value={action.selectors.join('\n')}
 						onInput={handleText(mappingId, `${prefix}.selectors`, onFieldChange)}
@@ -254,6 +268,7 @@ function ActionBlock(props: {
 					<Field label={getMessage(language, 'mapping.fallbackText')}>
 						<input
 							type="text"
+							class={sensitiveClass}
 							data-input={`${prefix}.text`}
 							value={action.text}
 							onInput={handleText(mappingId, `${prefix}.text`, onFieldChange)}
@@ -262,6 +277,7 @@ function ActionBlock(props: {
 					<Field label={getMessage(language, 'mapping.sampleHref')}>
 						<input
 							type="text"
+							class={sensitiveClass}
 							data-input={`${prefix}.sampleHref`}
 							value={action.sampleHref}
 							placeholder={getMessage(language, 'mapping.sampleHrefPlaceholder')}

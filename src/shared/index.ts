@@ -2,6 +2,7 @@ export * from './backup';
 export * from './extensionStorage';
 export * from './i18n';
 export * from './mappings';
+export * from './privacy';
 export * from './readerMode';
 export * from './reader';
 export * from './resume';

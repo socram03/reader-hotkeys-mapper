@@ -19,6 +19,7 @@ import {
 	loadFullBackup,
 	loadLanguage,
 	loadLatestReadExport,
+	loadPrivacySettings,
 	loadStorageMode,
 	loadUserMappings,
 	multilineTextToList,
@@ -33,6 +34,7 @@ import {
 	removeMappingEntry,
 	saveUserMappings,
 	saveLanguage,
+	savePrivacySettings,
 	sendReaderMessage,
 	SHORTCUT_ACTIONS,
 	STORAGE_KEYS,
@@ -41,7 +43,7 @@ import {
 } from '../shared';
 import { MappingCard } from './MappingCard';
 import { ShortcutCaptureInput } from './ShortcutCaptureInput';
-import type { Language, ReaderModeSettings, ShortcutAction, ShortcutSettings, StorageMode } from '../shared';
+import type { Language, PrivacySettings, ReaderModeSettings, ShortcutAction, ShortcutSettings, StorageMode } from '../shared';
 import type { MappingEntry, MappingState } from './types';
 
 type ValidationResult = {
@@ -61,6 +63,7 @@ export function OptionsApp() {
 	const [mappingState, setMappingState] = useState<MappingState>({ version: 3, entries: [] });
 	const [shortcutSettings, setShortcutSettings] = useState<ShortcutSettings>(normalizeShortcutSettings(null));
 	const [readerModeSettings, setReaderModeSettings] = useState<ReaderModeSettings>(normalizeReaderModeSettings(null));
+	const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({ streamerMode: false });
 	const [storageMode, setStorageModeState] = useState<StorageMode>('local');
 	const [language, setLanguage] = useState<Language>('es');
 	const [resumeSummary, setResumeSummary] = useState({ totalWorks: 0, totalEntries: 0 });
@@ -99,11 +102,12 @@ export function OptionsApp() {
 
 	async function initialize() {
 		try {
-			const [nextMappingState, latestReads, nextShortcutSettings, nextReaderModeSettings, nextStorageMode, nextLanguage] = await Promise.all([
+			const [nextMappingState, latestReads, nextShortcutSettings, nextReaderModeSettings, nextPrivacySettings, nextStorageMode, nextLanguage] = await Promise.all([
 				loadUserMappings(),
 				loadLatestReadExport(),
 				loadGlobalShortcutSettings(),
 				loadReaderModeSettings(),
+				loadPrivacySettings(),
 				loadStorageMode(),
 				loadLanguage()
 			]);
@@ -111,6 +115,7 @@ export function OptionsApp() {
 			setMappingState(nextMappingState);
 			setShortcutSettings(nextShortcutSettings);
 			setReaderModeSettings(nextReaderModeSettings);
+			setPrivacySettings(nextPrivacySettings);
 			setStorageModeState(nextStorageMode);
 			setLanguage(nextLanguage);
 			setResumeSummary({
@@ -209,6 +214,15 @@ export function OptionsApp() {
 			await extensionStorage.set({ [STORAGE_KEYS.settings]: settings });
 			setReaderModeSettings(normalized);
 			setMessage(t('options.readingModeSaved'));
+		} catch (error) {
+			setMessage(getErrorMessage(error), true);
+		}
+	}
+
+	async function savePrivacy() {
+		try {
+			await savePrivacySettings(privacySettings);
+			setMessage(t('privacy.saved'));
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
@@ -391,8 +405,8 @@ async function migrateFromTargetTab(mappingId: string) {
 			const summary = labels.join(' · ');
 
 			setValidationResult({
-				mappingLabel: entry.label,
-				target: formatTargetTab(targetTab),
+				mappingLabel: privacySettings.streamerMode ? t('privacy.hiddenMapping') : entry.label,
+				target: privacySettings.streamerMode ? t('privacy.hiddenSite') : formatTargetTab(targetTab),
 				summary,
 				error: !result.results.next || !result.results.main,
 				rows
@@ -656,6 +670,28 @@ async function migrateFromTargetTab(mappingId: string) {
 			<section class="shortcut-settings">
 				<div class="shortcut-settings-head">
 					<div>
+						<h2>{t('privacy.title')}</h2>
+					</div>
+					<button id="save-privacy" type="button" class="primary" onClick={() => void savePrivacy()}>
+						{t('privacy.save')}
+					</button>
+				</div>
+				<label class="toggle-row">
+					<span class="field-label">{t('privacy.streamerMode')}</span>
+					<div class="toggle-switch">
+						<input
+							id="streamer-mode-enabled"
+							type="checkbox"
+							checked={privacySettings.streamerMode}
+							onChange={event => setPrivacySettings({ streamerMode: event.currentTarget.checked })}
+						/>
+					</div>
+				</label>
+			</section>
+
+			<section class="shortcut-settings">
+				<div class="shortcut-settings-head">
+					<div>
 						<h2>{t('sync.title')}</h2>
 					</div>
 					<button id="save-storage-sync" type="button" class="primary" onClick={() => void saveStorageSync()}>
@@ -702,6 +738,7 @@ async function migrateFromTargetTab(mappingId: string) {
 						key={entry.id}
 						entry={entry}
 						language={language}
+						streamerMode={privacySettings.streamerMode}
 						onFieldChange={updateEntryField}
 						onSave={mappingId => void saveEntry(mappingId)}
 						onDelete={mappingId => void deleteEntry(mappingId)}

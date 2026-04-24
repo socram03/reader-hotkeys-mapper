@@ -96,6 +96,7 @@ export type ReaderStatus = {
 		focusMode?: boolean;
 		autoNext?: boolean;
 		autoScrollSpeed?: number;
+		streamerMode?: boolean;
 	};
 	[key: string]: unknown;
 };

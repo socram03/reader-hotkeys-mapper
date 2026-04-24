@@ -535,6 +535,10 @@ input[type="text"]:disabled {
   cursor: not-allowed;
 }
 
+.redacted-control {
+  -webkit-text-security: disc;
+}
+
 input[type="text"]::placeholder,
 textarea::placeholder {
   color: rgba(122, 120, 127, 0.5);

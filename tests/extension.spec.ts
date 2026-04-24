@@ -245,6 +245,41 @@ test.describe.serial('ChapterPilot extension', () => {
 		await expect(optionsPage.locator('#resume-work-count')).toHaveText('1');
 		await expect(optionsPage.locator('.notice')).toContainText('Backup importado');
 
+		await optionsPage.click('#streamer-mode-enabled');
+		await optionsPage.click('#save-privacy');
+		await expect(optionsPage.locator('.notice')).toContainText('Privacidad guardada');
+		const privateMappingCard = optionsPage.locator('.mapping-card').first();
+		await expect(privateMappingCard).toContainText('Sitio oculto');
+		await expect(privateMappingCard).not.toContainText('Custom Local');
+		await expect(privateMappingCard).not.toContainText('127.0.0.1');
+
+		await readerPage.bringToFront();
+		await waitForExtensionReady(readerPage);
+		await readerPage.keyboard.press('h');
+		await expect(readerPage.locator('#reader-hotkeys-help')).toContainText('Sitio oculto');
+		await expect(readerPage.locator('#reader-hotkeys-help')).not.toContainText('Custom Local');
+		await expect(readerPage.locator('#reader-hotkeys-help')).not.toContainText('127.0.0.1');
+		await readerPage.keyboard.press('Escape');
+
+		const privatePopup = await context.newPage();
+		await privatePopup.goto(`chrome-extension://${extensionId}/popup.html`);
+		await expect(privatePopup.locator('.status-card')).toContainText('Sitio oculto');
+		await expect(privatePopup.locator('.status-card')).not.toContainText('127.0.0.1');
+		await expect(privatePopup.locator('.status-card')).not.toContainText('Custom Reader');
+		const privateContinuePromise = context.waitForEvent('page');
+		await privatePopup.click('#open-continue-reading');
+		const privateContinuePage = await privateContinuePromise;
+		await privateContinuePage.waitForLoadState();
+		await expect(privateContinuePage.locator('#continue-reading-list')).toContainText('Lectura oculta');
+		await expect(privateContinuePage.locator('#continue-reading-list')).not.toContainText('Custom Reader');
+		await expect(privateContinuePage.locator('#continue-reading-list')).not.toContainText('127.0.0.1');
+		await privateContinuePage.close();
+		await privatePopup.close();
+
+		await optionsPage.click('#streamer-mode-enabled');
+		await optionsPage.click('#save-privacy');
+		await expect(optionsPage.locator('.notice')).toContainText('Privacidad guardada');
+
 		await readerPage.bringToFront();
 		await optionsPage.bringToFront();
 		await optionsPage.click('.mapping-card-head');
