@@ -149,6 +149,30 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		expect(String(exportedLatestReads.entries[0].chapterHref)).toContain('/custom/reader-1.html');
 		expect(Number(exportedLatestReads.entries[0].trackedEntries)).toBeGreaterThanOrEqual(1);
 
+		const backupDownload = optionsPage.waitForEvent('download');
+		await optionsPage.click('#export-backup');
+		const backupFile = await backupDownload;
+		const backupPath = path.join(userDataDir, 'reader-hotkeys-backup.json');
+		await backupFile.saveAs(backupPath);
+
+		const exportedBackup = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+		expect(exportedBackup.version).toBe(1);
+		expect(exportedBackup.userMappings.entries).toHaveLength(1);
+		expect(Object.keys(exportedBackup.resume).length).toBeGreaterThanOrEqual(1);
+		expect(exportedBackup.settings['mapped:127.0.0.1:4173::/custom/'].autoScrollSpeed).toBe(140);
+
+		await optionsPage.evaluate(async () => {
+			await chrome.storage.local.clear();
+		});
+		await optionsPage.reload();
+		await expect(optionsPage.locator('#mapping-count')).toHaveText('0');
+		await expect(optionsPage.locator('#resume-work-count')).toHaveText('0');
+
+		await optionsPage.locator('#import-json-file').setInputFiles(backupPath);
+		await expect(optionsPage.locator('#mapping-count')).toHaveText('1');
+		await expect(optionsPage.locator('#resume-work-count')).toHaveText('1');
+		await expect(optionsPage.locator('.notice')).toContainText('Backup importado');
+
 		await optionsPage.close();
 	});
 

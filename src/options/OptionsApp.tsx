@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
 	actionSelectorsToText,
+	buildFullBackupFilename,
 	buildLatestReadsFilename,
 	buildMappingId,
 	createBlankMapping,
@@ -8,6 +9,9 @@ import {
 	getAllMappingHosts,
 	getBestTargetTab,
 	inferPathPrefix,
+	importFullBackup,
+	isFullBackup,
+	loadFullBackup,
 	loadLatestReadExport,
 	loadUserMappings,
 	multilineTextToList,
@@ -239,6 +243,16 @@ export function OptionsApp() {
 		setMessage('Exportacion lista.');
 	}
 
+	async function exportBackup() {
+		try {
+			const backup = await loadFullBackup();
+			downloadJsonFile(backup, buildFullBackupFilename());
+			setMessage('Backup completo exportado.');
+		} catch (error) {
+			setMessage(`No pude exportar el backup: ${getErrorMessage(error)}`, true);
+		}
+	}
+
 	async function exportLatestReads() {
 		try {
 			const latestReads = await loadLatestReadExport();
@@ -265,7 +279,16 @@ export function OptionsApp() {
 
 		try {
 			const text = await file.text();
-			const imported = normalizeUserMappings(JSON.parse(text));
+			const parsed = JSON.parse(text);
+			if (isFullBackup(parsed)) {
+				const backup = await importFullBackup(parsed);
+				setMappingState(backup.userMappings);
+				await refreshResumeSummary();
+				setMessage('Backup importado.');
+				return;
+			}
+
+			const imported = normalizeUserMappings(parsed);
 			setMappingState(imported);
 			await saveUserMappings(imported);
 			setMessage('Importacion completada.');
@@ -308,10 +331,14 @@ export function OptionsApp() {
 					<button id="export-latest-reads" class="ghost" type="button" onClick={() => void exportLatestReads()}>
 						Exportar lecturas
 					</button>
+					<button id="export-backup" class="ghost" type="button" onClick={() => void exportBackup()}>
+						Exportar backup
+					</button>
 					<button id="import-mappings" class="ghost" type="button" onClick={() => importFileRef.current?.click()}>
 						Importar
 					</button>
 					<input
+						id="import-json-file"
 						ref={importFileRef}
 						type="file"
 						accept="application/json"

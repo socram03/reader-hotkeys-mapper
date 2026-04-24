@@ -1,3 +1,4 @@
+export * from './backup';
 export * from './extensionStorage';
 export * from './mappings';
 export * from './reader';
