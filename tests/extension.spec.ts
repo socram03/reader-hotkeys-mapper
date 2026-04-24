@@ -54,6 +54,13 @@ test.describe.serial('ChapterPilot extension', () => {
 		await englishPopup.goto(`chrome-extension://${extensionId}/popup.html`);
 		await expect(englishPopup.locator('.eyebrow')).toContainText('ChapterPilot');
 		await expect(englishPopup.locator('#start-mapper')).toContainText('Map reader');
+		const popupMetrics = await englishPopup.locator('.popup').evaluate(element => ({
+			width: element.getBoundingClientRect().width,
+			clientHeight: element.clientHeight,
+			scrollHeight: element.scrollHeight
+		}));
+		expect(popupMetrics.width).toBeGreaterThanOrEqual(430);
+		expect(popupMetrics.scrollHeight).toBeLessThanOrEqual(popupMetrics.clientHeight);
 		await englishPopup.close();
 
 		await i18nOptionsPage.selectOption('#language-select', 'es');

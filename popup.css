@@ -2,6 +2,7 @@
 
 :root {
   color-scheme: dark;
+  --popup-width: 440px;
   --bg: #0c0c10;
   --surface: #16161c;
   --surface-2: #1e1e26;
@@ -26,8 +27,8 @@
 html,
 body,
 #app {
-  width: 380px;
-  max-width: 380px;
+  width: var(--popup-width);
+  max-width: var(--popup-width);
   max-height: 600px;
   overflow: hidden;
   scrollbar-width: thin;
@@ -78,10 +79,10 @@ body::after {
 }
 
 .popup {
-  width: 380px;
-  max-width: 380px;
+  width: var(--popup-width);
+  max-width: var(--popup-width);
   max-height: 600px;
-  padding: 14px 16px 12px;
+  padding: 14px 18px 12px;
   display: grid;
   gap: 8px;
   overflow: hidden;
@@ -181,7 +182,7 @@ body::after {
   color: var(--muted);
   font-size: 10px;
   margin-top: 2px;
-  max-width: 210px;
+  max-width: 270px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -258,7 +259,7 @@ body::after {
 /* ── ACTION GRID ── */
 .actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
 }
 
