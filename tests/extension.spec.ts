@@ -127,8 +127,9 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		const latestReadPopup = await context.newPage();
 		await latestReadPopup.goto(`chrome-extension://${extensionId}/popup.html`);
 		await expect(latestReadPopup.locator('#resume-last-read')).toBeEnabled();
+		await expect(latestReadPopup.locator('#continue-reading-list')).toContainText('Custom Reader 1');
 		await expect(latestReadPopup.locator('.status-card')).toContainText('Custom Reader 1');
-		await latestReadPopup.click('#resume-last-read');
+		await latestReadPopup.click('[data-continue-reading-href*="/custom/reader-1.html"]');
 		await latestReadPopup.close();
 
 		await expect(readerPage).toHaveURL(/reader-1\.html$/);

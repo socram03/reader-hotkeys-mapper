@@ -2,15 +2,17 @@ import { useEffect, useState } from 'preact/hooks';
 import {
 	ensureReaderScript,
 	getBestTargetTab,
+	loadLatestReadExport,
 	sendReaderMessage
 } from '../shared';
-import type { ReaderStatus } from '../shared';
+import type { LatestReadExportEntry, ReaderStatus } from '../shared';
 
 type TargetTab = chrome.tabs.Tab | null;
 
 export function PopupApp() {
 	const [targetTab, setTargetTab] = useState<TargetTab>(null);
 	const [status, setStatus] = useState<ReaderStatus | null>(null);
+	const [continueReading, setContinueReading] = useState<LatestReadExportEntry[]>([]);
 	const [error, setError] = useState('');
 
 	useEffect(() => {
@@ -28,10 +30,16 @@ export function PopupApp() {
 
 			const nextStatus = await ensureReaderScript(tab.id);
 			setStatus(nextStatus);
+			await refreshContinueReading();
 			setError('');
 		} catch (nextError) {
 			setError(`No pude preparar la extension en la pestana objetivo: ${getErrorMessage(nextError)}`);
 		}
+	}
+
+	async function refreshContinueReading() {
+		const latestReads = await loadLatestReadExport();
+		setContinueReading(latestReads.entries.slice(0, 4));
 	}
 
 	async function runTabAction(type: string, options?: { closeAfter?: boolean }) {
@@ -55,6 +63,24 @@ export function PopupApp() {
 				await sendReaderMessage(targetTab.id, { type: 'reader:resume-last-read' });
 			} else {
 				await chrome.tabs.update(targetTab.id, { url: String(status.lastReadHref) });
+			}
+
+			setError('');
+			window.close();
+		} catch (nextError) {
+			setError(`No pude retomar la lectura: ${getErrorMessage(nextError)}`);
+		}
+	}
+
+	async function runContinueReadingAction(entry: LatestReadExportEntry) {
+		if (!targetTab?.id || !entry.chapterHref) return;
+
+		try {
+			const currentHref = status?.currentChapterHref || '';
+			if (currentHref && areComparableHrefsEqual(currentHref, entry.chapterHref)) {
+				await sendReaderMessage(targetTab.id, { type: 'reader:resume-last-read' });
+			} else {
+				await chrome.tabs.update(targetTab.id, { url: entry.chapterHref });
 			}
 
 			setError('');
@@ -204,6 +230,28 @@ export function PopupApp() {
 				</button>
 			</section>
 
+			{continueReading.length ? (
+				<section class="continue-reading">
+					<div class="continue-reading-title">Seguir leyendo</div>
+					<div id="continue-reading-list" class="continue-reading-list">
+						{continueReading.map(entry => (
+							<button
+								key={entry.workId}
+								class="continue-reading-item"
+								type="button"
+								data-continue-reading-href={entry.chapterHref}
+								onClick={() => void runContinueReadingAction(entry)}
+							>
+								<span class="continue-reading-main">{entry.chapterTitle || entry.host}</span>
+								<span class="continue-reading-meta">
+									{entry.host} · {Math.round(entry.progressPercent)}%
+								</span>
+							</button>
+						))}
+					</div>
+				</section>
+			) : null}
+
 			{/* ── Shortcuts ── */}
 			<footer class="shortcuts">
 				<div class="shortcuts-title">Atajos rapidos</div>
@@ -232,4 +280,18 @@ export function PopupApp() {
 
 function getErrorMessage(error: unknown) {
 	return error instanceof Error ? error.message : String(error || 'Error desconocido');
+}
+
+function areComparableHrefsEqual(left: string, right: string) {
+	return normalizeComparableHref(left) === normalizeComparableHref(right);
+}
+
+function normalizeComparableHref(value: string) {
+	try {
+		const url = new URL(value);
+		url.hash = '';
+		return url.href;
+	} catch {
+		return value;
+	}
 }
