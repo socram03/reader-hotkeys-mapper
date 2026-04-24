@@ -37,6 +37,7 @@ export type ResumeEntry = {
 	percent: number;
 	updatedAt: number;
 	title: string;
+	workTitle: string;
 	host: string;
 	siteId: string;
 	mainHref: string;
@@ -52,6 +53,7 @@ export type LatestReadExportEntry = {
 	workKey: string;
 	chapterHref: string;
 	chapterTitle: string;
+	workTitle: string;
 	trackedEntries: number;
 	progressPercent: number;
 	scrollY: number;

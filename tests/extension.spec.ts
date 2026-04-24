@@ -436,6 +436,46 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await optionsPage.close();
 		await readerPage.close();
 	});
+
+	test('repairs latest read when a work slug changes', async ({ baseURL }) => {
+		const readerPage = await context.newPage();
+		readerPage.on('dialog', dialog => dialog.accept('Rename Survival Local'));
+
+		await readerPage.goto(`${baseURL}/manga/rename-old/chapter-2.html`);
+
+		const optionsPage = await context.newPage();
+		await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+		await optionsPage.click('#start-picker');
+
+		await readerPage.bringToFront();
+		await expect(readerPage.locator('[data-mapper-save="true"]')).toBeVisible();
+
+		await readerPage.click('#next-link');
+		await readerPage.click('#prev-link');
+		await readerPage.click('#main-link');
+		await readerPage.click('[data-mapper-save="true"]');
+		await waitForExtensionReady(readerPage);
+
+		await readerPage.evaluate(() => {
+			window.scrollTo({ top: 900, behavior: 'auto' });
+		});
+		await readerPage.waitForTimeout(600);
+
+		await readerPage.goto(`${baseURL}/manga/rename-new/index.html`);
+		await waitForExtensionReady(readerPage);
+
+		const popupPage = await context.newPage();
+		await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+		await expect(popupPage.locator('#resume-last-read')).toBeEnabled();
+		await expect(popupPage.locator('.status-card')).toContainText('Rename Survival Chapter 2');
+		await popupPage.click('#resume-last-read');
+		await popupPage.close();
+
+		await expect(readerPage).toHaveURL(/manga\/rename-new\/chapter-2\.html$/);
+
+		await optionsPage.close();
+		await readerPage.close();
+	});
 });
 
 async function getTargetTabId(extensionPage: Page) {

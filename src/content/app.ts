@@ -938,6 +938,7 @@ function buildResumeEntry() {
 	const chapterHref = getCurrentChapterHref();
 	const mainHref = getCurrentMainHref();
 	const workKey = getCurrentWorkKey();
+	const workTitle = getCurrentWorkTitle(mainHref);
 
 	return {
 		storageKey: getResumeKey(),
@@ -946,6 +947,7 @@ function buildResumeEntry() {
 		percent,
 		updatedAt: Date.now(),
 		title: document.title,
+		workTitle,
 		host: window.location.host,
 		siteId: runtime.site?.id || '',
 		mainHref,
@@ -1111,6 +1113,10 @@ async function resumeLastRead(manual) {
 		showToast(t('content.resuming', { title: target.entry.title || t('content.latestChapter') }), 1200);
 	}
 
+	if ('repaired' in target && target.repaired) {
+		await persistResumeEntry(target.entry);
+	}
+
 	return navigateToHref(target.entry.chapterHref);
 }
 
@@ -1123,7 +1129,10 @@ function getResumeTarget(location) {
 		};
 	}
 
-	return findResumeTargetInEntries(getMeaningfulResumeEntries(), location);
+	const chapterTarget = findResumeTargetInEntries(getMeaningfulResumeEntries(), location);
+	if (chapterTarget) return chapterTarget;
+
+	return findRenamedWorkResumeTarget([...getMeaningfulWorkResumeEntries(), ...getMeaningfulResumeEntries()]);
 }
 
 function getMeaningfulResumeEntries() {
@@ -1172,6 +1181,37 @@ function findResumeTargetInEntries(entries, location) {
 		if (currentWorkKeyMatch) {
 			return { entry: currentWorkKeyMatch, scope: 'work-key' };
 		}
+	}
+
+	return null;
+}
+
+function findRenamedWorkResumeTarget(entries) {
+	const currentWorkTitle = normalizeTitleForMatch(getCurrentWorkTitle(''));
+	if (!currentWorkTitle) return null;
+
+	const chapterCandidates = getCurrentPageChapterCandidates();
+	if (!chapterCandidates.length) return null;
+
+	for (const entry of entries) {
+		if (normalizeTitleForMatch(entry.workTitle) !== currentWorkTitle) continue;
+
+		const chapterOrder = inferResumeChapterOrder(entry);
+		if (!Number.isFinite(chapterOrder)) continue;
+
+		const chapterCandidate = chapterCandidates.find(candidate => candidate.order === chapterOrder);
+		if (!chapterCandidate) continue;
+
+		return {
+			entry: {
+				...entry,
+				storageKey: `${entry.siteId || runtime.site?.id || window.location.host}:${chapterCandidate.href}`,
+				mainHref: getComparableHref(window.location.href),
+				chapterHref: chapterCandidate.href
+			},
+			scope: 'repaired-work-slug',
+			repaired: true
+		};
 	}
 
 	return null;
@@ -2128,6 +2168,59 @@ function getResumeKey() {
 	}
 
 	return `${runtime.site.id}:${window.location.host}${window.location.pathname}${window.location.search}`;
+}
+
+function getCurrentWorkTitle(mainHref = getCurrentMainHref()) {
+	const linkedTitle = getLinkedWorkTitle(mainHref);
+	if (linkedTitle) return linkedTitle;
+
+	const heading = document.querySelector('h1');
+	const headingTitle = getElementText(heading);
+	if (headingTitle) return headingTitle;
+
+	return stripChapterText(document.title);
+}
+
+function getLinkedWorkTitle(mainHref) {
+	if (!mainHref) return '';
+
+	const link = Array.from(document.querySelectorAll('a[href]')).find(anchor => {
+		return areComparableHrefsEqual((anchor as HTMLAnchorElement).href, mainHref);
+	});
+
+	return getElementText(link);
+}
+
+function stripChapterText(value) {
+	return String(value || '')
+		.replace(/(?:cap(?:itulo)?|chapter|ch|episodio|episode|ep)\s*[-#: ]*\s*\d+(?:[.,]\d+)?/gi, '')
+		.replace(/\d+(?:[.,]\d+)?\s*(?:cap(?:itulo)?|chapter|ch|episodio|episode|ep)/gi, '')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+function normalizeTitleForMatch(value) {
+	return stripChapterText(value)
+		.toLowerCase()
+		.normalize('NFD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.replace(/[^a-z0-9]+/g, ' ')
+		.trim();
+}
+
+function getCurrentPageChapterCandidates() {
+	return Array.from(document.querySelectorAll('a[href]'))
+		.map(anchor => {
+			const href = getComparableHref((anchor as HTMLAnchorElement).href);
+			if (!href || areComparableHrefsEqual(href, getCurrentChapterHref())) return null;
+			if (!isReaderRouteNavigationTarget(href)) return null;
+
+			const order = extractChapterOrder(`${getElementText(anchor)} ${getHrefLastSegment(href)}`);
+			if (!Number.isFinite(order)) return null;
+
+			return { href, order };
+		})
+		.filter(Boolean);
 }
 
 function getCurrentMainHref() {
