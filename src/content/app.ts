@@ -1,3 +1,10 @@
+import {
+	DEFAULT_SHORTCUTS,
+	GLOBAL_SETTINGS_KEY,
+	normalizeShortcutKeyInput,
+	normalizeShortcutSettings
+} from '../shared/shortcuts';
+
 const STORAGE_KEYS = {
 	settings: 'readerHotkeysSettings',
 	resume: 'readerHotkeysResume',
@@ -154,7 +161,8 @@ const runtime = {
 	},
 	settings: {
 		focusMode: false,
-		autoNext: false
+		autoNext: false,
+		shortcuts: normalizeShortcutSettings(null)
 	},
 	nextHref: '',
 	prefetchedHref: '',
@@ -485,9 +493,11 @@ async function loadPersistedState() {
 }
 
 function applyStoredSettings() {
+	const globalSettings = runtime.persisted.settings[GLOBAL_SETTINGS_KEY] || {};
 	const siteSettings = runtime.persisted.settings[runtime.site.id] || {};
 	runtime.settings.focusMode = Boolean(siteSettings.focusMode);
 	runtime.settings.autoNext = Boolean(siteSettings.autoNext);
+	runtime.settings.shortcuts = normalizeShortcutSettings(globalSettings.shortcuts);
 	runtime.autoScrollSpeed = normalizeAutoScrollSpeed(siteSettings.autoScrollSpeed);
 }
 
@@ -531,75 +541,100 @@ function handleGlobalShortcut(key) {
 
 	if (!runtime.site && !hasOverlay) return false;
 
-	switch (key) {
-		case '?':
-		case 'h':
-			if (!runtime.site) return false;
-			toggleShortcutHelp();
-			return true;
-		case 'Escape':
-			return closeMapper() || closeChapterMap() || closeShortcutHelp();
-		case 'j':
-			if (!runtime.site) return false;
-			scrollByViewport(0.85);
-			return true;
-		case 'k':
-			if (!runtime.site) return false;
-			scrollByViewport(-0.85);
-			return true;
-		case 'l':
-			if (!runtime.site) return notifyNoActiveReader();
-			return resumeLastRead(true);
-		case 'z':
-			if (!runtime.site) return notifyNoActiveReader();
-			toggleFocusMode();
-			return true;
-		case 'a':
-			if (!runtime.site) return notifyNoActiveReader();
-			toggleAutoNext();
-			return true;
-		case ' ':
-			return pauseAutoScroll();
-		case '+':
-		case '=':
-			if (!runtime.settings.autoNext) return false;
-			adjustAutoScrollSpeed(20);
-			return true;
-		case '-':
-			if (!runtime.settings.autoNext) return false;
-			adjustAutoScrollSpeed(-20);
-			return true;
-		case 'r':
-			if (!runtime.site) return notifyNoActiveReader();
-			restoreResumePosition(true);
-			return true;
-		case 'c':
-			if (!runtime.site) {
-				showToast('No hay un lector activo en esta pagina');
-				return true;
-			}
-			toggleChapterMap();
-			return true;
-		case 'u':
-			if (!runtime.site) return false;
-			toggleMapper();
-			return true;
-		default:
-			return false;
+	if (isShortcut(key, 'help')) {
+		if (!runtime.site) return false;
+		toggleShortcutHelp();
+		return true;
 	}
+
+	if (key === 'Escape') {
+		return closeMapper() || closeChapterMap() || closeShortcutHelp();
+	}
+
+	if (isShortcut(key, 'scrollDown')) {
+		if (!runtime.site) return false;
+		scrollByViewport(0.85);
+		return true;
+	}
+
+	if (isShortcut(key, 'scrollUp')) {
+		if (!runtime.site) return false;
+		scrollByViewport(-0.85);
+		return true;
+	}
+
+	if (isShortcut(key, 'resume')) {
+		if (!runtime.site) return notifyNoActiveReader();
+		return resumeLastRead(true);
+	}
+
+	if (isShortcut(key, 'focus')) {
+		if (!runtime.site) return notifyNoActiveReader();
+		toggleFocusMode();
+		return true;
+	}
+
+	if (isShortcut(key, 'autoNext')) {
+		if (!runtime.site) return notifyNoActiveReader();
+		toggleAutoNext();
+		return true;
+	}
+
+	if (isShortcut(key, 'pauseAutoScroll')) {
+		return pauseAutoScroll();
+	}
+
+	if (isShortcut(key, 'speedUp')) {
+		if (!runtime.settings.autoNext) return false;
+		adjustAutoScrollSpeed(20);
+		return true;
+	}
+
+	if (isShortcut(key, 'speedDown')) {
+		if (!runtime.settings.autoNext) return false;
+		adjustAutoScrollSpeed(-20);
+		return true;
+	}
+
+	if (isShortcut(key, 'restore')) {
+		if (!runtime.site) return notifyNoActiveReader();
+		restoreResumePosition(true);
+		return true;
+	}
+
+	if (isShortcut(key, 'chapterMap')) {
+		if (!runtime.site) {
+			showToast('No hay un lector activo en esta pagina');
+			return true;
+		}
+		toggleChapterMap();
+		return true;
+	}
+
+	if (isShortcut(key, 'mapper')) {
+		if (!runtime.site) return false;
+		toggleMapper();
+		return true;
+	}
+
+	return false;
 }
 
 function getSiteShortcutAction(key) {
-	switch (key) {
-		case 'ArrowRight':
-			return () => navigateToHref(runtime.site.getNextHref?.());
-		case 'ArrowLeft':
-			return () => navigateToHref(runtime.site.getPrevHref?.());
-		case 'm':
-			return () => navigateToHref(runtime.site.getMainHref?.());
-		default:
-			return null;
-	}
+	if (isShortcut(key, 'next')) return () => navigateToHref(runtime.site.getNextHref?.());
+	if (isShortcut(key, 'prev')) return () => navigateToHref(runtime.site.getPrevHref?.());
+	if (isShortcut(key, 'main')) return () => navigateToHref(runtime.site.getMainHref?.());
+	return null;
+}
+
+function isShortcut(key, action) {
+	const shortcut = normalizeShortcutKeyInput(runtime.settings.shortcuts?.[action], DEFAULT_SHORTCUTS[action]);
+	if (key === shortcut) return true;
+
+	if (shortcut === DEFAULT_SHORTCUTS.help && action === 'help' && key === 'h') return true;
+	if (shortcut === DEFAULT_SHORTCUTS.speedUp && action === 'speedUp' && key === '=') return true;
+
+	return false;
 }
 
 function getActiveSite(location) {

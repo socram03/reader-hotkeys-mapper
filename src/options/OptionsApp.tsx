@@ -6,8 +6,11 @@ import {
 	buildMappingId,
 	createBlankMapping,
 	ensureReaderScript,
+	extensionStorage,
+	formatShortcutKey,
 	getAllMappingHosts,
 	getBestTargetTab,
+	GLOBAL_SETTINGS_KEY,
 	inferPathPrefix,
 	importFullBackup,
 	isFullBackup,
@@ -19,14 +22,20 @@ import {
 	normalizeHostList,
 	normalizePrefix,
 	normalizePrefixList,
+	normalizeShortcutSettings,
+	normalizeShortcutKeyInput,
 	normalizeUserMappings,
 	removeMappingEntry,
 	saveUserMappings,
 	sendReaderMessage,
+	SHORTCUT_ACTIONS,
+	SHORTCUT_LABELS,
+	STORAGE_KEYS,
 	textToSelectors,
 	upsertMappingEntry
 } from '../shared';
 import { MappingCard } from './MappingCard';
+import type { ShortcutSettings } from '../shared';
 import type { MappingEntry, MappingState } from './types';
 
 (globalThis as any).__readerHotkeysTest = {
@@ -36,6 +45,7 @@ import type { MappingEntry, MappingState } from './types';
 
 export function OptionsApp() {
 	const [mappingState, setMappingState] = useState<MappingState>({ version: 3, entries: [] });
+	const [shortcutSettings, setShortcutSettings] = useState<ShortcutSettings>(normalizeShortcutSettings(null));
 	const [resumeSummary, setResumeSummary] = useState({ totalWorks: 0, totalEntries: 0 });
 	const [message, setMessageState] = useState<{ text: string; error: boolean }>({ text: '', error: false });
 	const importFileRef = useRef<HTMLInputElement>(null);
@@ -70,12 +80,14 @@ export function OptionsApp() {
 
 	async function initialize() {
 		try {
-			const [nextMappingState, latestReads] = await Promise.all([
+			const [nextMappingState, latestReads, nextShortcutSettings] = await Promise.all([
 				loadUserMappings(),
-				loadLatestReadExport()
+				loadLatestReadExport(),
+				loadGlobalShortcutSettings()
 			]);
 
 			setMappingState(nextMappingState);
+			setShortcutSettings(nextShortcutSettings);
 			setResumeSummary({
 				totalWorks: latestReads.totalWorks,
 				totalEntries: latestReads.totalEntries
@@ -106,6 +118,43 @@ export function OptionsApp() {
 			...current,
 			entries: current.entries.map(entry => entry.id === mappingId ? patchEntry(entry, field, value) : entry)
 		}));
+	}
+
+	function updateShortcut(action: keyof ShortcutSettings, value: string) {
+		setShortcutSettings(current => ({
+			...current,
+			[action]: value
+		}));
+	}
+
+	async function saveShortcuts() {
+		try {
+			const normalized = normalizeShortcutSettings(shortcutSettings);
+			const usedShortcuts = new Map<string, string>();
+			for (const action of SHORTCUT_ACTIONS) {
+				const key = normalized[action];
+				if (usedShortcuts.has(key)) {
+					throw new Error(`Atajo duplicado: ${formatShortcutKey(key)} en ${usedShortcuts.get(key)} y ${SHORTCUT_LABELS[action]}.`);
+				}
+				usedShortcuts.set(key, SHORTCUT_LABELS[action]);
+			}
+
+			const data = await extensionStorage.get([STORAGE_KEYS.settings]);
+			const settings: Record<string, unknown> = isRecord(data[STORAGE_KEYS.settings])
+				? Object.assign({}, data[STORAGE_KEYS.settings])
+				: {};
+			const globalSettings: Record<string, unknown> = isRecord(settings[GLOBAL_SETTINGS_KEY]) ? { ...settings[GLOBAL_SETTINGS_KEY] } : {};
+			settings[GLOBAL_SETTINGS_KEY] = {
+				...globalSettings,
+				shortcuts: normalized
+			};
+
+			await extensionStorage.set({ [STORAGE_KEYS.settings]: settings });
+			setShortcutSettings(normalized);
+			setMessage('Atajos guardados. Recarga la pestana lectora para aplicar cambios.');
+		} catch (error) {
+			setMessage(getErrorMessage(error), true);
+		}
 	}
 
 	async function saveEntry(mappingId: string) {
@@ -387,6 +436,30 @@ async function migrateFromTargetTab(mappingId: string) {
 				</section>
 			)}
 
+			<section class="shortcut-settings">
+				<div class="shortcut-settings-head">
+					<div>
+						<h2>Atajos globales</h2>
+					</div>
+					<button id="save-shortcuts" type="button" class="primary" onClick={() => void saveShortcuts()}>
+						Guardar atajos
+					</button>
+				</div>
+				<div class="shortcut-settings-grid">
+					{SHORTCUT_ACTIONS.map(action => (
+						<label class="shortcut-field" key={action}>
+							<span class="field-label">{SHORTCUT_LABELS[action]}</span>
+							<input
+								type="text"
+								data-shortcut-action={action}
+								value={formatShortcutKey(normalizeShortcutKeyInput(shortcutSettings[action]))}
+								onInput={event => updateShortcut(action, event.currentTarget.value)}
+							/>
+						</label>
+					))}
+				</div>
+			</section>
+
 			{/* ── Summary ── */}
 			<section class="summary">
 				<div class="stat-card">
@@ -493,6 +566,17 @@ function normalizeEntryForSave(entry: MappingEntry): MappingEntry {
 
 function getErrorMessage(error: unknown) {
 	return error instanceof Error ? error.message : String(error || 'Error desconocido');
+}
+
+async function loadGlobalShortcutSettings(): Promise<ShortcutSettings> {
+	const data = await extensionStorage.get([STORAGE_KEYS.settings]);
+	const settings = isRecord(data[STORAGE_KEYS.settings]) ? data[STORAGE_KEYS.settings] : {};
+	const globalSettings = isRecord(settings[GLOBAL_SETTINGS_KEY]) ? settings[GLOBAL_SETTINGS_KEY] : {};
+	return normalizeShortcutSettings(globalSettings.shortcuts);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function downloadJsonFile(data: unknown, filename: string) {
