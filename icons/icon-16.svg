@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-label="Reader Hotkeys Mapper">
+  <rect width="16" height="16" rx="3" fill="#101014"/>
+  <path fill="#ffba08" d="M2 3.5A1.5 1.5 0 0 1 3.5 2H7v9H3.5A1.5 1.5 0 0 1 2 9.5v-6Zm7-1.5h3.5A1.5 1.5 0 0 1 14 3.5v6a1.5 1.5 0 0 1-1.5 1.5H9V2Z"/>
+  <path fill="#101014" d="M4 4h2v1H4V4Zm0 2h2v1H4V6Zm6-2h2v1h-2V4Zm0 2h2v1h-2V6Z"/>
+  <path fill="#f5f1e8" d="M4 13h8v1H4v-1Zm2-2 1.5 1.5L6 14v-3Zm4 0v3l-1.5-1.5L10 11Z"/>
+</svg>

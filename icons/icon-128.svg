@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Reader Hotkeys Mapper">
+  <defs>
+    <linearGradient id="bg" x1="20" y1="10" x2="108" y2="118" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1d1d24"/>
+      <stop offset=".58" stop-color="#0d0d12"/>
+      <stop offset="1" stop-color="#030305"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="24" y1="20" x2="104" y2="84" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffd866"/>
+      <stop offset=".48" stop-color="#ffba08"/>
+      <stop offset="1" stop-color="#b8860b"/>
+    </linearGradient>
+    <filter id="shadow" x="8" y="8" width="112" height="112" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000" flood-opacity=".38"/>
+    </filter>
+  </defs>
+  <rect x="10" y="10" width="108" height="108" rx="28" fill="url(#bg)" filter="url(#shadow)"/>
+  <path fill="url(#paper)" d="M24 33c0-8.3 6.7-15 15-15h22v72H39c-8.3 0-15-6.7-15-15V33Zm43-15h22c8.3 0 15 6.7 15 15v42c0 8.3-6.7 15-15 15H67V18Z"/>
+  <path fill="#101014" d="M39 35h15v5H39v-5Zm0 14h15v5H39v-5Zm0 14h12v5H39v-5Zm36-28h15v5H75v-5Zm0 14h15v5H75v-5Zm3 14h12v5H78v-5Z"/>
+  <path fill="#fff7d6" fill-opacity=".28" d="M39 24h50c5 0 9 4 9 9v2H30v-2c0-5 4-9 9-9Z"/>
+  <rect x="31" y="96" width="66" height="18" rx="9" fill="#f5f1e8"/>
+  <path fill="#101014" d="M47 101.5 56 105l-9 3.5v-7Zm34 0v7l-9-3.5 9-3.5ZM60 101h8v8h-8v-8Z"/>
+  <path fill="#ffba08" d="M64 88 57 78h14l-7 10Z"/>
+</svg>
