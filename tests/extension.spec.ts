@@ -68,6 +68,18 @@ test.describe.serial('ChapterPilot extension', () => {
 		await expect(i18nOptionsPage.locator('h1')).toContainText('Opciones y mapeos');
 		await i18nOptionsPage.close();
 
+		const nonReaderPage = await context.newPage();
+		const nonReaderErrors: string[] = [];
+		nonReaderPage.on('pageerror', error => nonReaderErrors.push(error.message));
+		await nonReaderPage.goto(`${baseURL}/`);
+		await waitForExtensionIdle(nonReaderPage);
+		await nonReaderPage.evaluate(() => {
+			window.dispatchEvent(new KeyboardEvent('keydown'));
+		});
+		await nonReaderPage.waitForTimeout(100);
+		expect(nonReaderErrors).toEqual([]);
+		await nonReaderPage.close();
+
 		const candidatePopup = await context.newPage();
 		await candidatePopup.goto(`chrome-extension://${extensionId}/popup.html`);
 		await expect(candidatePopup.locator('.status-card')).toContainText('Lector probable');

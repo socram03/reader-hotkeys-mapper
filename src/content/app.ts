@@ -701,7 +701,8 @@ function matchesPath(pathname, paths) {
 }
 
 function normalizeKey(key) {
-	return key.length === 1 ? key.toLowerCase() : key;
+	const normalizedKey = String(key || '');
+	return normalizedKey.length === 1 ? normalizedKey.toLowerCase() : normalizedKey;
 }
 
 function isEditableTarget(target) {
@@ -1340,7 +1341,7 @@ function toggleShortcutHelp() {
 
 	const siteShortcuts = runtime.site
 		? [
-			...runtime.site.shortcuts.map(localizeSiteShortcut),
+			...getSiteShortcuts().map(localizeSiteShortcut),
 			{ key: 'l', description: t('content.helpResume') },
 			{ key: 'z', description: t('content.helpZen', { state: runtime.settings.focusMode ? t('content.helpOn') : t('content.helpOff') }) },
 			{ key: 'a', description: t('content.helpAutoScroll', { state: runtime.settings.autoNext ? `${t('content.helpOn')} ${runtime.autoScrollSpeed} px/s` : t('content.helpOff') }) },
@@ -1391,6 +1392,10 @@ function getGlobalShortcuts() {
 		{ key: '1-9', description: t('content.helpJump') },
 		{ key: 'Escape', description: t('content.helpClose') }
 	];
+}
+
+function getSiteShortcuts() {
+	return Array.isArray(runtime.site?.shortcuts) ? runtime.site.shortcuts : [];
 }
 
 function localizeSiteShortcut(shortcut) {
@@ -2140,11 +2145,13 @@ function renderChapterResults(overlay, chapters) {
 }
 
 function renderShortcutSection(title, shortcuts) {
+	const safeShortcuts = Array.isArray(shortcuts) ? shortcuts : [];
+
 	return `
 		<div style="border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:12px 14px;">
 			<div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:#FFBA08; margin-bottom:10px; font-family:'Chakra Petch',sans-serif;">${title}</div>
 			<div style="display:grid; gap:7px;">
-				${shortcuts.map(shortcut => {
+				${safeShortcuts.map(shortcut => {
 					return `
 						<div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
 							<kbd style="background:#0c0c10; border:1px solid rgba(255,255,255,0.06); border-bottom-width:2px; border-bottom-color:rgba(0,0,0,0.3); border-radius:4px; padding:4px 8px; font:600 11px/1.3 'IBM Plex Mono',monospace; min-width:80px; text-align:center; color:#e8e6e1;">${shortcut.key}</kbd>
