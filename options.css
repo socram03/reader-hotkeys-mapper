@@ -201,6 +201,96 @@ button.ghost:hover {
   color: var(--accent);
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.validation-modal {
+  width: min(620px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+}
+
+.validation-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.validation-modal-head h2 {
+  font: 700 22px/1.15 'Chakra Petch', sans-serif;
+  margin-top: 4px;
+}
+
+.validation-modal-meta {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.validation-modal-meta div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.validation-modal-meta span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.validation-modal-meta strong {
+  overflow-wrap: anywhere;
+}
+
+.validation-modal-meta .ok {
+  color: var(--accent);
+}
+
+.validation-modal-meta .fail {
+  color: var(--danger);
+}
+
+.validation-result-list {
+  display: grid;
+  gap: 8px;
+}
+
+.validation-result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+.validation-result-row.ok strong {
+  color: var(--accent);
+}
+
+.validation-result-row.fail strong {
+  color: var(--danger);
+}
+
 /* ── SUMMARY STATS ── */
 .summary {
   display: grid;

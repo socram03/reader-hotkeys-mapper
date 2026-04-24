@@ -175,9 +175,19 @@ test.describe.serial('ChapterPilot extension', () => {
 		const latestReadPopup = await context.newPage();
 		await latestReadPopup.goto(`chrome-extension://${extensionId}/popup.html`);
 		await expect(latestReadPopup.locator('#resume-last-read')).toBeEnabled();
-		await expect(latestReadPopup.locator('#continue-reading-list')).toContainText('Custom Reader 1');
+		await expect(latestReadPopup.locator('#open-continue-reading')).toBeVisible();
 		await expect(latestReadPopup.locator('.status-card')).toContainText('Custom Reader 1');
-		await latestReadPopup.click('[data-continue-reading-href*="/custom/reader-1.html"]');
+		const continuePagePromise = context.waitForEvent('page');
+		await latestReadPopup.click('#open-continue-reading');
+		const continuePage = await continuePagePromise;
+		await continuePage.waitForLoadState();
+		await expect(continuePage.locator('h1')).toContainText('Seguir leyendo');
+		await expect(continuePage.locator('#continue-search')).toBeVisible();
+		await expect(continuePage.locator('#continue-reading-list')).toContainText('Custom Reader 1');
+		await continuePage.locator('#continue-search').fill('custom');
+		await expect(continuePage.locator('[data-continue-reading-href*="/custom/reader-1.html"]')).toBeVisible();
+		await continuePage.click('[data-continue-reading-href*="/custom/reader-1.html"]');
+		await continuePage.close();
 		await latestReadPopup.close();
 
 		await expect(readerPage).toHaveURL(/reader-1\.html$/);
@@ -226,9 +236,19 @@ test.describe.serial('ChapterPilot extension', () => {
 		await optionsPage.bringToFront();
 		await optionsPage.click('.mapping-card-head');
 		await optionsPage.click('[data-action="validate"]');
+		const validationModal = optionsPage.locator('[data-validation-modal="true"]');
+		await expect(validationModal).toBeVisible();
+		await expect(validationModal).toContainText('Resultado del test');
+		await expect(validationModal).toContainText('Custom Local');
+		await expect(validationModal).toContainText('/custom/reader-1.html');
+		await expect(validationModal).toContainText('Siguiente OK');
+		await expect(validationModal).toContainText('Anterior OK');
+		await expect(validationModal).toContainText('Principal OK');
 		await expect(optionsPage.locator('.notice')).toContainText('Siguiente OK');
 		await expect(optionsPage.locator('.notice')).toContainText('Anterior OK');
 		await expect(optionsPage.locator('.notice')).toContainText('Principal OK');
+		await validationModal.locator('[data-validation-close="true"]').click();
+		await expect(validationModal).toBeHidden();
 
 		await optionsPage.click('[data-shortcut-action="next"]');
 		await optionsPage.keyboard.press('Control+ArrowRight');
@@ -484,10 +504,15 @@ test.describe.serial('ChapterPilot extension', () => {
 		await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
 		await expect(popupPage.locator('#resume-last-read')).toBeEnabled();
 		await expect(popupPage.locator('.status-card')).toContainText('Rename Survival Chapter 2');
-		await expect(popupPage.locator('[data-continue-reading-href*="/manga/rename-old/chapter-2.html"]')).toBeVisible();
-		await popupPage.click('[data-repair-continue-reading-href*="/manga/rename-old/chapter-2.html"]');
-		await expect(popupPage.locator('[data-continue-reading-href*="/manga/rename-new/chapter-2.html"]')).toBeVisible();
-		await popupPage.click('[data-continue-reading-href*="/manga/rename-new/chapter-2.html"]');
+		const continuePagePromise = context.waitForEvent('page');
+		await popupPage.click('#open-continue-reading');
+		const continuePage = await continuePagePromise;
+		await continuePage.waitForLoadState();
+		await expect(continuePage.locator('[data-continue-reading-href*="/manga/rename-old/chapter-2.html"]')).toBeVisible();
+		await continuePage.click('[data-repair-continue-reading-href*="/manga/rename-old/chapter-2.html"]');
+		await expect(continuePage.locator('[data-continue-reading-href*="/manga/rename-new/chapter-2.html"]')).toBeVisible();
+		await continuePage.click('[data-continue-reading-href*="/manga/rename-new/chapter-2.html"]');
+		await continuePage.close();
 		await popupPage.close();
 
 		await expect(readerPage).toHaveURL(/manga\/rename-new\/chapter-2\.html$/);

@@ -44,6 +44,14 @@ import { ShortcutCaptureInput } from './ShortcutCaptureInput';
 import type { Language, ReaderModeSettings, ShortcutAction, ShortcutSettings, StorageMode } from '../shared';
 import type { MappingEntry, MappingState } from './types';
 
+type ValidationResult = {
+	mappingLabel: string;
+	target: string;
+	summary: string;
+	error: boolean;
+	rows: Array<{ action: 'next' | 'prev' | 'main'; label: string; ok: boolean }>;
+};
+
 (globalThis as any).__readerHotkeysTest = {
 	getBestTargetTab,
 	ensureReaderScript
@@ -57,6 +65,7 @@ export function OptionsApp() {
 	const [language, setLanguage] = useState<Language>('es');
 	const [resumeSummary, setResumeSummary] = useState({ totalWorks: 0, totalEntries: 0 });
 	const [message, setMessageState] = useState<{ text: string; error: boolean }>({ text: '', error: false });
+	const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
 	const importFileRef = useRef<HTMLInputElement>(null);
 	const t = (key: Parameters<typeof getMessage>[1], values?: Parameters<typeof getMessage>[2]) => getMessage(language, key, values);
 
@@ -374,8 +383,21 @@ async function migrateFromTargetTab(mappingId: string) {
 				t('options.validatePrev', { status: result.results.prev ? t('options.validateOk') : t('options.validateFail') }),
 				t('options.validateMain', { status: result.results.main ? t('options.validateOk') : t('options.validateFail') })
 			];
+			const rows: ValidationResult['rows'] = [
+				{ action: 'next', label: labels[0], ok: result.results.next },
+				{ action: 'prev', label: labels[1], ok: result.results.prev },
+				{ action: 'main', label: labels[2], ok: result.results.main }
+			];
+			const summary = labels.join(' · ');
 
-			setMessage(t('options.validateCompleted', { summary: labels.join(' · ') }), !result.results.next || !result.results.main);
+			setValidationResult({
+				mappingLabel: entry.label,
+				target: formatTargetTab(targetTab),
+				summary,
+				error: !result.results.next || !result.results.main,
+				rows
+			});
+			setMessage(t('options.validateCompleted', { summary }), !result.results.next || !result.results.main);
 		} catch (error) {
 			setMessage(t('options.validateFailed', { error: getErrorMessage(error) }), true);
 		}
@@ -500,6 +522,40 @@ async function migrateFromTargetTab(mappingId: string) {
 					{message.text}
 				</section>
 			)}
+
+			{validationResult ? (
+				<div class="modal-backdrop" data-validation-modal="true" onClick={() => setValidationResult(null)}>
+					<section class="validation-modal" role="dialog" aria-modal="true" aria-labelledby="validation-modal-title" onClick={event => event.stopPropagation()}>
+						<div class="validation-modal-head">
+							<div>
+								<p class="eyebrow">{t('options.validateModalTitle')}</p>
+								<h2 id="validation-modal-title">{validationResult.mappingLabel}</h2>
+							</div>
+							<button type="button" class="ghost" data-validation-close="true" onClick={() => setValidationResult(null)}>
+								{t('options.validateModalClose')}
+							</button>
+						</div>
+						<div class="validation-modal-meta">
+							<div>
+								<span>{t('options.validateModalTarget')}</span>
+								<strong>{validationResult.target}</strong>
+							</div>
+							<div>
+								<span>{t('options.validateModalSummary')}</span>
+								<strong class={validationResult.error ? 'fail' : 'ok'}>{validationResult.summary}</strong>
+							</div>
+						</div>
+						<div class="validation-result-list">
+							{validationResult.rows.map(row => (
+								<div key={row.action} class={`validation-result-row ${row.ok ? 'ok' : 'fail'}`}>
+									<span>{row.label}</span>
+									<strong>{row.ok ? t('options.validateOk') : t('options.validateFail')}</strong>
+								</div>
+							))}
+						</div>
+					</section>
+				</div>
+			) : null}
 
 			<section class="shortcut-settings">
 				<div class="shortcut-settings-head">
@@ -733,6 +789,18 @@ function normalizeEntryForSave(entry: MappingEntry): MappingEntry {
 			}
 		}
 	};
+}
+
+function formatTargetTab(tab: chrome.tabs.Tab): string {
+	const rawUrl = tab.url || '';
+	if (!rawUrl) return tab.title || '';
+
+	try {
+		const url = new URL(rawUrl);
+		return `${url.host}${url.pathname}`;
+	} catch {
+		return rawUrl;
+	}
 }
 
 function getErrorMessage(error: unknown) {

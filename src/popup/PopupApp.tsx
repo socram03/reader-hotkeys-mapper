@@ -46,7 +46,7 @@ export function PopupApp() {
 
 	async function refreshContinueReading() {
 		const latestReads = await loadLatestReadExport();
-		setContinueReading(latestReads.entries.slice(0, 4));
+		setContinueReading(latestReads.entries.slice(0, 1));
 	}
 
 	async function runTabAction(type: string, options?: { closeAfter?: boolean }) {
@@ -81,46 +81,9 @@ export function PopupApp() {
 		}
 	}
 
-	async function runContinueReadingAction(entry: LatestReadExportEntry) {
-		if (!targetTab?.id || !entry.chapterHref) return;
-
-		try {
-			const currentHref = status?.currentChapterHref || '';
-			if (currentHref && areComparableHrefsEqual(currentHref, entry.chapterHref)) {
-				await sendReaderMessage(targetTab.id, { type: 'reader:resume-last-read' });
-			} else {
-				await chrome.tabs.update(targetTab.id, { url: entry.chapterHref });
-			}
-
-			setError('');
-			setNotice('');
-			window.close();
-		} catch (nextError) {
-			setError(t('popup.resumeError', { error: getErrorMessage(nextError) }));
-		}
-	}
-
-	async function repairContinueReadingEntry(entry: LatestReadExportEntry) {
-		if (!targetTab?.id) return;
-
-		try {
-			const result = await sendReaderMessage<{ ok: boolean; status?: ReaderStatus }>(targetTab.id, {
-				type: 'reader:repair-latest-read',
-				entry
-			});
-
-			if (!result?.ok) {
-				throw new Error(t('popup.repairNoMatch'));
-			}
-
-			if (result.status) setStatus(result.status);
-			await refreshContinueReading();
-			setNotice(t('popup.repairSaved'));
-			setError('');
-		} catch (nextError) {
-			setNotice('');
-			setError(t('popup.repairError', { error: getErrorMessage(nextError) }));
-		}
+	function openContinueReadingPage() {
+		chrome.tabs.create({ url: chrome.runtime.getURL('continue.html') });
+		window.close();
 	}
 
 	const hasReader = Boolean(status?.siteDetected);
@@ -274,32 +237,15 @@ export function PopupApp() {
 			{continueReading.length ? (
 				<section class="continue-reading">
 					<div class="continue-reading-title">{t('popup.continueReading')}</div>
-					<div id="continue-reading-list" class="continue-reading-list">
-						{continueReading.map(entry => (
-							<div key={entry.workId} class="continue-reading-row">
-								<button
-									class="continue-reading-item"
-									type="button"
-									data-continue-reading-href={entry.chapterHref}
-									onClick={() => void runContinueReadingAction(entry)}
-								>
-									<span class="continue-reading-main">{entry.chapterTitle || entry.host}</span>
-									<span class="continue-reading-meta">
-										{entry.host} · {Math.round(entry.progressPercent)}%
-									</span>
-								</button>
-								<button
-									class="continue-reading-repair"
-									type="button"
-									data-repair-continue-reading-href={entry.chapterHref}
-									disabled={!hasReader}
-									onClick={() => void repairContinueReadingEntry(entry)}
-								>
-									{t('popup.repairHere')}
-								</button>
-							</div>
-						))}
+					<div id="continue-reading-list" class="continue-reading-summary">
+						<span class="continue-reading-main">{continueReading[0].chapterTitle || continueReading[0].workTitle || continueReading[0].host}</span>
+						<span class="continue-reading-meta">
+							{continueReading[0].host} · {Math.round(continueReading[0].progressPercent)}%
+						</span>
 					</div>
+					<button id="open-continue-reading" class="key-btn full-width" type="button" onClick={openContinueReadingPage}>
+						{t('popup.openContinueReading')}
+					</button>
 				</section>
 			) : null}
 
@@ -331,18 +277,4 @@ export function PopupApp() {
 
 function getErrorMessage(error: unknown) {
 	return error instanceof Error ? error.message : String(error || 'Unknown error');
-}
-
-function areComparableHrefsEqual(left: string, right: string) {
-	return normalizeComparableHref(left) === normalizeComparableHref(right);
-}
-
-function normalizeComparableHref(value: string) {
-	try {
-		const url = new URL(value);
-		url.hash = '';
-		return url.href;
-	} catch {
-		return value;
-	}
 }

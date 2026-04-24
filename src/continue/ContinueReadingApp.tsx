@@ -1,0 +1,221 @@
+import { useEffect, useMemo, useState } from 'preact/hooks';
+import {
+	ensureReaderScript,
+	getBestTargetTab,
+	getMessage,
+	loadLanguage,
+	loadLatestReadExport,
+	sendReaderMessage
+} from '../shared';
+import type { Language, LatestReadExportEntry, ReaderStatus } from '../shared';
+
+type TargetTab = chrome.tabs.Tab | null;
+
+export function ContinueReadingApp() {
+	const [targetTab, setTargetTab] = useState<TargetTab>(null);
+	const [status, setStatus] = useState<ReaderStatus | null>(null);
+	const [entries, setEntries] = useState<LatestReadExportEntry[]>([]);
+	const [language, setLanguage] = useState<Language>('es');
+	const [query, setQuery] = useState('');
+	const [error, setError] = useState('');
+	const [notice, setNotice] = useState('');
+	const t = (key: Parameters<typeof getMessage>[1], values?: Parameters<typeof getMessage>[2]) => getMessage(language, key, values);
+
+	useEffect(() => {
+		void initialize();
+	}, []);
+
+	const filteredEntries = useMemo(() => {
+		const normalizedQuery = query.trim().toLowerCase();
+		if (!normalizedQuery) return entries;
+
+		return entries.filter(entry => {
+			const searchableText = [
+				entry.workTitle,
+				entry.chapterTitle,
+				entry.host,
+				entry.chapterHref,
+				entry.workHref
+			].join(' ').toLowerCase();
+
+			return searchableText.includes(normalizedQuery);
+		});
+	}, [entries, query]);
+
+	async function initialize() {
+		try {
+			const nextLanguage = await loadLanguage();
+			setLanguage(nextLanguage);
+			await refreshEntries();
+
+			const tab = await getBestTargetTab();
+			setTargetTab(tab);
+			if (tab?.id) {
+				const nextStatus = await ensureReaderScript(tab.id);
+				setStatus(nextStatus);
+			}
+			setError('');
+		} catch (nextError) {
+			setError(t('continue.loadError', { error: getErrorMessage(nextError) }));
+		}
+	}
+
+	async function refreshEntries() {
+		const latestReads = await loadLatestReadExport();
+		setEntries(latestReads.entries);
+	}
+
+	async function openEntry(entry: LatestReadExportEntry) {
+		if (!entry.chapterHref) return;
+
+		try {
+			const currentHref = status?.currentChapterHref || '';
+			if (targetTab?.id && currentHref && areComparableHrefsEqual(currentHref, entry.chapterHref)) {
+				await sendReaderMessage(targetTab.id, { type: 'reader:resume-last-read' });
+			} else if (targetTab?.id) {
+				await chrome.tabs.update(targetTab.id, { url: entry.chapterHref });
+			} else {
+				await chrome.tabs.create({ url: entry.chapterHref });
+			}
+
+			setNotice(t('continue.opened', { title: getEntryTitle(entry) }));
+			setError('');
+		} catch (nextError) {
+			setNotice('');
+			setError(t('popup.resumeError', { error: getErrorMessage(nextError) }));
+		}
+	}
+
+	async function repairEntry(entry: LatestReadExportEntry) {
+		if (!targetTab?.id) return;
+
+		try {
+			const result = await sendReaderMessage<{ ok: boolean; status?: ReaderStatus }>(targetTab.id, {
+				type: 'reader:repair-latest-read',
+				entry
+			});
+
+			if (!result?.ok) {
+				throw new Error(t('popup.repairNoMatch'));
+			}
+
+			if (result.status) setStatus(result.status);
+			await refreshEntries();
+			setNotice(t('popup.repairSaved'));
+			setError('');
+		} catch (nextError) {
+			setNotice('');
+			setError(t('popup.repairError', { error: getErrorMessage(nextError) }));
+		}
+	}
+
+	return (
+		<main class="continue-page">
+			<header class="continue-hero">
+				<div class="brand">
+					<div class="brand-icon">
+						<svg viewBox="0 0 24 24"><path d="M15 7.5V2H9v5.5l3 3 3-3zM7.5 9H2v6h5.5l3-3-3-3zM9 16.5V22h6v-5.5l-3-3-3 3zM16.5 9l-3 3 3 3H22V9h-5.5z"/></svg>
+					</div>
+					<div>
+						<p class="eyebrow">{t('app.name')}</p>
+						<h1>{t('continue.title')}</h1>
+					</div>
+				</div>
+				<div class="continue-stats">
+					<span>{t('continue.totalWorks', { count: entries.length })}</span>
+					<span>{targetTab?.url ? t('continue.targetReady') : t('continue.targetMissing')}</span>
+				</div>
+			</header>
+
+			<section class="continue-toolbar">
+				<label class="search-field">
+					<span>{t('continue.search')}</span>
+					<input
+						id="continue-search"
+						type="search"
+						value={query}
+						placeholder={t('continue.searchPlaceholder')}
+						onInput={event => setQuery(event.currentTarget.value)}
+					/>
+				</label>
+				<button type="button" class="ghost" onClick={() => void refreshEntries()}>
+					{t('continue.refresh')}
+				</button>
+			</section>
+
+			{error ? <div class="message error">{error}</div> : null}
+			{notice ? <div class="message ok">{notice}</div> : null}
+
+			<section id="continue-reading-list" class="continue-list">
+				{filteredEntries.length ? filteredEntries.map(entry => (
+					<article key={entry.workId} class="continue-card">
+						<div class="continue-card-main">
+							<div>
+								<h2>{getEntryTitle(entry)}</h2>
+								<p>{entry.host} · {formatDate(entry.updatedAt)}</p>
+							</div>
+							<span class="progress-value">{Math.round(entry.progressPercent)}%</span>
+						</div>
+						<div class="progress-track" aria-hidden="true">
+							<div class="progress-fill" style={{ width: `${Math.max(2, Math.min(100, entry.progressPercent))}%` }} />
+						</div>
+						<div class="continue-card-meta">
+							<span>{entry.trackedEntries} {t('continue.savedEntries')}</span>
+							<span>{entry.chapterHref}</span>
+						</div>
+						<div class="continue-card-actions">
+							<button
+								type="button"
+								class="primary"
+								data-continue-reading-href={entry.chapterHref}
+								onClick={() => void openEntry(entry)}
+							>
+								{t('continue.open')}
+							</button>
+							<button
+								type="button"
+								class="ghost"
+								data-repair-continue-reading-href={entry.chapterHref}
+								disabled={!targetTab?.id || !status?.siteDetected}
+								onClick={() => void repairEntry(entry)}
+							>
+								{t('popup.repairHere')}
+							</button>
+						</div>
+					</article>
+				)) : (
+					<div class="empty-state">
+						<h2>{entries.length ? t('continue.noMatches') : t('continue.empty')}</h2>
+						<p>{entries.length ? t('continue.noMatchesHint') : t('continue.emptyHint')}</p>
+					</div>
+				)}
+			</section>
+		</main>
+	);
+}
+
+function getEntryTitle(entry: LatestReadExportEntry) {
+	return entry.chapterTitle || entry.workTitle || entry.host;
+}
+
+function formatDate(timestamp: number) {
+	return new Date(timestamp).toLocaleString();
+}
+
+function getErrorMessage(error: unknown) {
+	return error instanceof Error ? error.message : String(error || 'Unknown error');
+}
+
+function areComparableHrefsEqual(left: string, right: string) {
+	return normalizeComparableHref(left) === normalizeComparableHref(right);
+}
+
+function normalizeComparableHref(value: string) {
+	try {
+		const url = new URL(value);
+		url.hash = '';
+		return url.href;
+	} catch {
+		return value;
+	}
+}
