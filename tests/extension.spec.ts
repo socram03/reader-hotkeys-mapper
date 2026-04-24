@@ -174,6 +174,14 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await expect(optionsPage.locator('#resume-work-count')).toHaveText('1');
 		await expect(optionsPage.locator('.notice')).toContainText('Backup importado');
 
+		await readerPage.bringToFront();
+		await optionsPage.bringToFront();
+		await optionsPage.click('.mapping-card-head');
+		await optionsPage.click('[data-action="validate"]');
+		await expect(optionsPage.locator('.notice')).toContainText('Siguiente OK');
+		await expect(optionsPage.locator('.notice')).toContainText('Anterior OK');
+		await expect(optionsPage.locator('.notice')).toContainText('Principal OK');
+
 		await optionsPage.close();
 	});
 

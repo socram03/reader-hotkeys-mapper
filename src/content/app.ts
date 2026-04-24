@@ -218,9 +218,35 @@ async function handleRuntimeMessage(message) {
 		case 'reader:open-chapter-map':
 			if (runtime.site) toggleChapterMap();
 			return getReaderStatus();
+		case 'reader:validate-mapping':
+			return validateMappingOnPage(message.mapping);
 		default:
 			return { ok: false };
 	}
+}
+
+function validateMappingOnPage(mapping) {
+	if (!mapping?.actions) {
+		return { ok: false, results: { next: false, prev: false, main: false } };
+	}
+
+	const nextHref = resolveMappedHref(mapping.actions.next);
+	const prevHref = resolveMappedHref(mapping.actions.prev);
+	const mainHref = resolveMappedHref(mapping.actions.main);
+
+	return {
+		ok: true,
+		results: {
+			next: Boolean(nextHref),
+			prev: Boolean(prevHref),
+			main: Boolean(mainHref)
+		},
+		hrefs: {
+			next: nextHref,
+			prev: prevHref,
+			main: mainHref
+		}
+	};
 }
 
 function getReaderStatus() {

@@ -9,10 +9,11 @@ type MappingCardProps = {
 	onDelete: (mappingId: string) => void;
 	onDuplicate: (mappingId: string) => void;
 	onMigrate: (mappingId: string) => void;
+	onValidate: (mappingId: string) => void;
 };
 
 export function MappingCard(props: MappingCardProps) {
-	const { entry, onFieldChange, onSave, onDelete, onDuplicate, onMigrate } = props;
+	const { entry, onFieldChange, onSave, onDelete, onDuplicate, onMigrate, onValidate } = props;
 	const [collapsed, setCollapsed] = useState(true);
 
 	return (
@@ -51,6 +52,9 @@ export function MappingCard(props: MappingCardProps) {
 						</button>
 					) : (
 						<>
+							<button type="button" class="ghost" data-action="validate" onClick={() => onValidate(entry.id)}>
+								Probar
+							</button>
 							<button type="button" class="ghost" data-action="migrate" onClick={() => onMigrate(entry.id)}>
 								Migrar
 							</button>
@@ -163,6 +167,9 @@ export function MappingCard(props: MappingCardProps) {
 			{/* ── Footer ── */}
 			<div class="card-footer">
 				<span class="timestamp">{`Actualizado ${new Date(entry.updatedAt).toLocaleString()}`}</span>
+				<button type="button" data-action="validate" class="ghost" onClick={() => onValidate(entry.id)}>
+					Probar en pestana
+				</button>
 				<button type="button" data-action="save" class="primary" onClick={() => onSave(entry.id)}>
 					Guardar mapeo
 				</button>

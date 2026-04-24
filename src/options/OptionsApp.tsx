@@ -201,7 +201,7 @@ export function OptionsApp() {
 		}
 	}
 
-	async function migrateFromTargetTab(mappingId: string) {
+async function migrateFromTargetTab(mappingId: string) {
 		try {
 			const targetTab = await getBestTargetTab();
 			if (!targetTab?.url) throw new Error('No encontre una pestana web compatible para migrar.');
@@ -229,6 +229,38 @@ export function OptionsApp() {
 			setMessage(`Anadi ${host} y ${prefix} como alias de migracion. Guarda el mapeo para aplicar el cambio.`);
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
+		}
+	}
+
+	async function validateMapping(mappingId: string) {
+		try {
+			const entry = mappingState.entries.find(item => item.id === mappingId);
+			if (!entry) throw new Error('No encontre el mapeo a probar.');
+
+			const targetTab = await getBestTargetTab();
+			if (!targetTab?.id) throw new Error('No encontre una pestana web compatible para probar.');
+
+			const result = await sendReaderMessage<{
+				ok?: boolean;
+				results?: Record<'next' | 'prev' | 'main', boolean>;
+			}>(targetTab.id, {
+				type: 'reader:validate-mapping',
+				mapping: normalizeEntryForSave(entry)
+			});
+
+			if (!result?.ok || !result.results) {
+				throw new Error('No pude probar este mapeo en la pestana objetivo.');
+			}
+
+			const labels = [
+				`Siguiente ${result.results.next ? 'OK' : 'falla'}`,
+				`Anterior ${result.results.prev ? 'OK' : 'falla'}`,
+				`Principal ${result.results.main ? 'OK' : 'falla'}`
+			];
+
+			setMessage(`Prueba completada: ${labels.join(' · ')}`, !result.results.next || !result.results.main);
+		} catch (error) {
+			setMessage(`Prueba fallida: ${getErrorMessage(error)}`, true);
 		}
 	}
 
@@ -386,6 +418,7 @@ export function OptionsApp() {
 						onDelete={mappingId => void deleteEntry(mappingId)}
 						onDuplicate={mappingId => void duplicateEntry(mappingId)}
 						onMigrate={mappingId => void migrateFromTargetTab(mappingId)}
+						onValidate={mappingId => void validateMapping(mappingId)}
 					/>
 				)) : (
 					<div class="empty-state">
