@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 const STORAGE_KEYS = {
 	settings: 'readerHotkeysSettings',
 	resume: 'readerHotkeysResume',
@@ -20,6 +18,8 @@ const CHAPTER_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 6;
 const AUTO_SCROLL_PX_PER_SECOND = 120;
 const AUTO_SCROLL_INTERVAL_MS = 16;
 const LOCATION_SYNC_INTERVAL_MS = 250;
+
+type LooseRecord = Record<string, any>;
 
 const globalShortcuts = [
 	{ key: '? / h', description: 'Mostrar u ocultar ayuda' },
@@ -1004,8 +1004,8 @@ function getMeaningfulWorkResumeEntries() {
 function getMeaningfulResumeEntriesByType(entryType) {
 	const now = Date.now();
 
-	return Object.values(runtime.persisted.resume || {})
-		.filter(entry => {
+	return (Object.values(runtime.persisted.resume || {}) as LooseRecord[])
+		.filter((entry): entry is LooseRecord => {
 			if (!entry || typeof entry !== 'object') return false;
 			if (typeof entry.updatedAt !== 'number' || now - entry.updatedAt > RESUME_MAX_AGE_MS) return false;
 			if (!entry.chapterHref) return false;
@@ -1083,7 +1083,7 @@ function toggleShortcutHelp() {
 	overlay.style.zIndex = '2147483647';
 	overlay.style.background = 'rgba(0, 0, 0, 0.45)';
 	overlay.style.backdropFilter = 'blur(4px)';
-	overlay.style.webkitBackdropFilter = 'blur(4px)';
+	overlay.style.setProperty('-webkit-backdrop-filter', 'blur(4px)');
 	overlay.style.display = 'flex';
 	overlay.style.alignItems = 'flex-end';
 	overlay.style.justifyContent = 'flex-start';
@@ -1119,7 +1119,7 @@ function toggleShortcutHelp() {
 	`;
 
 	overlay.addEventListener('click', event => {
-		const closeButton = event.target.closest?.('[data-close-help="true"]');
+		const closeButton = closestFromEvent(event, '[data-close-help="true"]');
 		if (event.target === overlay || closeButton) closeShortcutHelp();
 	});
 
@@ -1195,7 +1195,7 @@ function openMapper() {
 	overlay.appendChild(panel);
 
 	// ── Drag logic ──
-	const dragHandle = panel.querySelector('[data-mapper-drag="true"]');
+	const dragHandle = panel.querySelector<HTMLElement>('[data-mapper-drag="true"]');
 	let isDragging = false;
 	let dragOffsetX = 0;
 	let dragOffsetY = 0;
@@ -1225,9 +1225,9 @@ function openMapper() {
 	});
 
 	panel.addEventListener('click', event => {
-		const cancel = event.target.closest?.('[data-mapper-cancel="true"]');
-		const skip = event.target.closest?.('[data-mapper-skip="true"]');
-		const save = event.target.closest?.('[data-mapper-save="true"]');
+		const cancel = closestFromEvent(event, '[data-mapper-cancel="true"]');
+		const skip = closestFromEvent(event, '[data-mapper-skip="true"]');
+		const save = closestFromEvent(event, '[data-mapper-save="true"]');
 
 		if (cancel) {
 			closeMapper();
@@ -1275,28 +1275,6 @@ function handleMapperDocumentClick(event) {
 	runtime.mapper.selections[step.key] = descriptor;
 	showToast(`Mapeado: ${step.key}`);
 	advanceMapperStep();
-}
-
-function renderMapperStatus() {
-	const status = document.querySelector('[data-mapper-status="true"]');
-	if (!status || !runtime.mapper) return;
-
-	const currentStep = runtime.mapper.steps[runtime.mapper.stepIndex];
-	if (!currentStep) {
-		status.innerHTML = '<span style="color:#FFBA08;">Pasos completados.</span> Pulsa <strong>Guardar ahora</strong> para activar el mapeo.';
-		return;
-	}
-
-	const completed = runtime.mapper.steps
-		.slice(0, runtime.mapper.stepIndex)
-		.map(step => `• ${step.key}`)
-		.join('<br>');
-
-	status.innerHTML = `
-		<div style="font-weight:500;">${currentStep.label}</div>
-		<div style="margin-top:6px; font-size:11px; color:#7a787f;">Click sobre la pagina para capturar. Usa "Saltar paso" si no aplica.</div>
-		${completed ? `<div style="margin-top:8px; font-size:11px; color:#7a787f;">Capturados:<br>${completed}</div>` : ''}
-	`;
 }
 
 function advanceMapperStep() {
@@ -1501,20 +1479,21 @@ function normalizePrefixList(values, primaryPrefix) {
 	return uniqueList(normalizeStringList(values).map(normalizePrefix)).filter(prefix => prefix && prefix !== primaryPrefix);
 }
 
-function uniqueList(values) {
+function uniqueList<T>(values: T[]): T[] {
 	return [...new Set(values.filter(Boolean))];
 }
 
-function getAllMappingHosts(mapping) {
+function getAllMappingHosts(mapping): string[] {
 	return uniqueList([normalizeHost(mapping?.host), ...(mapping?.hostAliases || []).map(normalizeHost)]).filter(Boolean);
 }
 
-function getAllReadingPrefixes(mapping) {
+function getAllReadingPrefixes(mapping): string[] {
 	return uniqueList([normalizePrefix(mapping?.readingPrefix), ...(mapping?.readingPrefixes || []).map(normalizePrefix)]).filter(Boolean);
 }
 
-function getUserMappingEntries() {
-	return Array.isArray(runtime.persisted.userMappings?.entries) ? runtime.persisted.userMappings.entries : [];
+function getUserMappingEntries(): LooseRecord[] {
+	const userMappings = runtime.persisted.userMappings as { entries?: LooseRecord[] };
+	return Array.isArray(userMappings.entries) ? userMappings.entries : [];
 }
 
 function getHostUserMappings(host) {
@@ -1522,7 +1501,7 @@ function getHostUserMappings(host) {
 	return getUserMappingEntries().filter(mapping => getAllMappingHosts(mapping).includes(normalizedHost));
 }
 
-function getMatchingUserMapping(location, options = {}) {
+function getMatchingUserMapping(location, options: { includeDisabled?: boolean } = {}) {
 	const includeDisabled = Boolean(options.includeDisabled);
 	return getHostUserMappings(location.host)
 		.filter(mapping => includeDisabled || mapping.enabled !== false)
@@ -1651,7 +1630,7 @@ function buildNthSelector(element) {
 		const parent = current.parentElement;
 		if (!parent) break;
 
-		const siblings = [...parent.children].filter(child => child.tagName === current.tagName);
+		const siblings = Array.from(parent.children).filter(child => child.tagName === current.tagName);
 		const position = siblings.indexOf(current) + 1;
 		parts.unshift(`${tagName}:nth-of-type(${position})`);
 		current = parent;
@@ -1661,7 +1640,7 @@ function buildNthSelector(element) {
 	return parts.join(' > ');
 }
 
-function resolveMappedHref(action, options = {}) {
+function resolveMappedHref(action, options: { allowSampleFallback?: boolean } = {}) {
 	if (!action) return '';
 
 	if (Array.isArray(action.selectors)) {
@@ -1710,6 +1689,10 @@ function escapeHtml(value) {
 		.replaceAll("'", '&#39;');
 }
 
+function closestFromEvent(event, selector) {
+	return event.target instanceof Element ? event.target.closest(selector) : null;
+}
+
 function toggleChapterMap() {
 	if (closeChapterMap()) return;
 
@@ -1730,7 +1713,7 @@ function openChapterMap() {
 	overlay.style.zIndex = '2147483647';
 	overlay.style.background = 'rgba(0, 0, 0, 0.35)';
 	overlay.style.backdropFilter = 'blur(4px)';
-	overlay.style.webkitBackdropFilter = 'blur(4px)';
+	overlay.style.setProperty('-webkit-backdrop-filter', 'blur(4px)');
 	overlay.style.display = 'flex';
 	overlay.style.alignItems = 'stretch';
 	overlay.style.justifyContent = 'flex-end';
@@ -1753,13 +1736,13 @@ function openChapterMap() {
 	`;
 
 	overlay.addEventListener('click', event => {
-		const closeButton = event.target.closest?.('[data-close-chapter-map="true"]');
+		const closeButton = closestFromEvent(event, '[data-close-chapter-map="true"]');
 		if (event.target === overlay || closeButton) closeChapterMap();
 	});
 
 	document.body.appendChild(overlay);
 
-	const searchInput = overlay.querySelector('[data-chapter-search="true"]');
+	const searchInput = overlay.querySelector<HTMLInputElement>('[data-chapter-search="true"]');
 	searchInput?.focus();
 
 	loadChapterMap(mainHref, overlay);
@@ -1889,7 +1872,7 @@ function renderShortcutSection(title, shortcuts) {
 	`;
 }
 
-function showToast(message, duration) {
+function showToast(message, duration = 1600) {
 	const timeout = duration || 1600;
 	const container = getToastContainer();
 	const toast = document.createElement('div');
@@ -1897,7 +1880,7 @@ function showToast(message, duration) {
 	toast.textContent = message;
 	toast.style.background = 'rgba(12, 12, 16, 0.88)';
 	toast.style.backdropFilter = 'blur(12px)';
-	toast.style.webkitBackdropFilter = 'blur(12px)';
+	toast.style.setProperty('-webkit-backdrop-filter', 'blur(12px)');
 	toast.style.color = '#e8e6e1';
 	toast.style.border = '1px solid rgba(255, 255, 255, 0.06)';
 	toast.style.borderLeft = '3px solid #FFBA08';
@@ -2020,11 +2003,12 @@ function getMaxScroll() {
 	return Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
 }
 
-function pruneResumeEntries(entries) {
+function pruneResumeEntries(entries: LooseRecord) {
 	const now = Date.now();
 	const freshEntries = Object.entries(entries).filter(([, entry]) => {
+		if (!entry || typeof entry !== 'object') return false;
 		return entry && typeof entry.updatedAt === 'number' && now - entry.updatedAt <= RESUME_MAX_AGE_MS;
-	});
+	}) as [string, LooseRecord][];
 
 	freshEntries.sort((a, b) => b[1].updatedAt - a[1].updatedAt);
 
@@ -2040,7 +2024,7 @@ function getTMOChapterHref(className) {
 }
 
 function getTMOMainHref() {
-	const items = [...document.getElementsByClassName('d-inline px-1')];
+	const items = Array.from(document.getElementsByClassName('d-inline px-1'));
 	let mainHref = items[0]?.querySelector('a[href]')?.getAttribute('href') || '';
 
 	if (mainHref === '#') {
@@ -2099,7 +2083,7 @@ function getResumeSite(location = window.location) {
 }
 
 function findLink(predicate) {
-	return [...document.querySelectorAll('a[href]')].find(predicate);
+	return Array.from(document.querySelectorAll('a[href]')).find(predicate);
 }
 
 function getElementText(element) {
@@ -2239,7 +2223,7 @@ function createStorage() {
 				});
 			},
 			set(values) {
-				return new Promise(resolve => {
+				return new Promise<void>(resolve => {
 					try {
 						chrome.storage.local.set(values, () => {
 							hasRuntimeError();
