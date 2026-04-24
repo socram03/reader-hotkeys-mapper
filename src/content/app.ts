@@ -18,6 +18,26 @@ const CHAPTER_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 6;
 const AUTO_SCROLL_PX_PER_SECOND = 120;
 const AUTO_SCROLL_INTERVAL_MS = 16;
 const LOCATION_SYNC_INTERVAL_MS = 250;
+const READER_ROUTE_SEGMENTS = new Set([
+	'capitulo',
+	'capitulos',
+	'chapter',
+	'chapters',
+	'comic',
+	'comics',
+	'leer',
+	'lectura',
+	'manga',
+	'manhua',
+	'manhwa',
+	'read',
+	'reader',
+	'serie',
+	'series',
+	'view',
+	'viewer',
+	'ver'
+]);
 
 type LooseRecord = Record<string, any>;
 
@@ -1551,7 +1571,7 @@ function inferReadingPrefix(actions) {
 	});
 
 	const prefix = getCommonPathPrefix(chapterPaths);
-	return prefix || inferSimplePathPrefix(window.location.pathname);
+	return refineReadingPrefix(prefix, chapterPaths) || inferSimplePathPrefix(window.location.pathname);
 }
 
 function getCommonPathPrefix(paths) {
@@ -1567,6 +1587,27 @@ function getCommonPathPrefix(paths) {
 	const slashIndex = prefix.lastIndexOf('/');
 	if (slashIndex <= 0) return '';
 	return `${prefix.slice(0, slashIndex + 1)}`;
+}
+
+function refineReadingPrefix(prefix, chapterPaths) {
+	if (!prefix) return '';
+
+	const normalizedPrefix = normalizePrefix(prefix);
+	const prefixSegments = normalizedPrefix.split('/').filter(Boolean);
+	if (prefixSegments.length < 2) return normalizedPrefix;
+
+	const baseSegments = prefixSegments.slice(0, -1);
+	const basePrefix = `/${baseSegments.join('/')}/`;
+	const hasChapterRemainder = chapterPaths.every(path => {
+		const pathname = normalizePrefix(path);
+		return pathname.startsWith(normalizedPrefix) && pathname.slice(normalizedPrefix.length).length > 0;
+	});
+
+	if (hasChapterRemainder && baseSegments.some(segment => READER_ROUTE_SEGMENTS.has(segment.toLowerCase()))) {
+		return basePrefix;
+	}
+
+	return normalizedPrefix;
 }
 
 function inferSimplePathPrefix(pathname) {
@@ -1640,7 +1681,7 @@ function buildNthSelector(element) {
 	return parts.join(' > ');
 }
 
-function resolveMappedHref(action, options: { allowSampleFallback?: boolean } = {}) {
+function resolveMappedHref(action) {
 	if (!action) return '';
 
 	if (Array.isArray(action.selectors)) {
@@ -1665,7 +1706,7 @@ function resolveMappedHref(action, options: { allowSampleFallback?: boolean } = 
 		return fallback.getAttribute('href');
 	}
 
-	return options.allowSampleFallback ? action.sampleHref || '' : '';
+	return '';
 }
 
 function escapeCssToken(value) {

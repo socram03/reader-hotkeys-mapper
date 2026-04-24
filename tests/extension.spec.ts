@@ -251,6 +251,35 @@ test.describe.serial('Reader Hotkeys extension', () => {
 
 		await optionsPage.close();
 	});
+
+	test('infers route-level prefixes for work-scoped reader URLs', async ({ baseURL }) => {
+		const readerPage = await context.newPage();
+		readerPage.on('dialog', dialog => dialog.accept('Manga Crab Local'));
+
+		await readerPage.goto(`${baseURL}/series/manga-crab/chapter-2.html`);
+
+		const optionsPage = await context.newPage();
+		await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+		await optionsPage.click('#start-picker');
+
+		await readerPage.bringToFront();
+		await expect(readerPage.locator('[data-mapper-save="true"]')).toBeVisible();
+
+		await readerPage.click('#next-link');
+		await readerPage.click('#prev-link');
+		await readerPage.click('#main-link');
+		await readerPage.click('[data-mapper-save="true"]');
+		await waitForExtensionReady(readerPage);
+
+		await optionsPage.reload();
+		const mappingCard = optionsPage.locator('.mapping-card').filter({ hasText: 'Manga Crab Local' });
+		await expect(mappingCard).toHaveCount(1);
+		await mappingCard.locator('.mapping-card-head').click();
+		await expect(mappingCard.locator('[data-input="readingPrefix"]')).toHaveValue('/series/');
+
+		await optionsPage.close();
+		await readerPage.close();
+	});
 });
 
 async function getTargetTabId(extensionPage: Page) {

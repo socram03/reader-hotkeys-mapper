@@ -214,11 +214,12 @@ function ActionBlock(props: {
 							onInput={handleText(mappingId, `${prefix}.text`, onFieldChange)}
 						/>
 					</Field>
-					<Field label="Href fallback">
+					<Field label="Href de muestra">
 						<input
 							type="text"
 							data-input={`${prefix}.sampleHref`}
 							value={action.sampleHref}
+							placeholder="Solo referencia capturada; no se usa para navegar"
 							onInput={handleText(mappingId, `${prefix}.sampleHref`, onFieldChange)}
 						/>
 					</Field>

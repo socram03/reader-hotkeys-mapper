@@ -111,11 +111,11 @@ export function OptionsApp() {
 
 			const normalizedEntry = normalizeEntryForSave(entry);
 			if (!normalizedEntry.host) throw new Error('Falta el host principal.');
-			if (!normalizedEntry.actions.next.selectors.length && !normalizedEntry.actions.next.sampleHref && !normalizedEntry.actions.next.text) {
-				throw new Error('La accion siguiente necesita selector, texto o href de fallback.');
+			if (!normalizedEntry.actions.next.selectors.length && !normalizedEntry.actions.next.text) {
+				throw new Error('La accion siguiente necesita selector o texto fallback.');
 			}
-			if (!normalizedEntry.actions.main.selectors.length && !normalizedEntry.actions.main.sampleHref && !normalizedEntry.actions.main.text) {
-				throw new Error('La accion principal necesita selector, texto o href de fallback.');
+			if (!normalizedEntry.actions.main.selectors.length && !normalizedEntry.actions.main.text) {
+				throw new Error('La accion principal necesita selector o texto fallback.');
 			}
 
 			let nextState = mappingState;
