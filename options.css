@@ -404,6 +404,10 @@ button.ghost:hover {
   grid-template-columns: 1fr 1fr;
 }
 
+.field-grid.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -634,6 +638,10 @@ textarea {
   }
 
   .field-grid.cols-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .field-grid.cols-3 {
     grid-template-columns: 1fr;
   }
 

@@ -205,6 +205,23 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await optionsPage.click('#save-shortcuts');
 		await expect(optionsPage.locator('.notice')).toContainText('Atajos guardados');
 
+		await optionsPage.fill('[data-domain-shortcut-action="next"]', 'x');
+		await optionsPage.click('.card-footer [data-action="save"]');
+		await expect(optionsPage.locator('.notice')).toContainText('Guardado');
+
+		await readerPage.goto(`${baseURL}/custom/reader-1.html`);
+		await ensureReaderInActiveTab(optionsPage, readerPage);
+		await waitForExtensionReady(readerPage);
+		await readerPage.keyboard.press('ArrowRight');
+		await expect(readerPage).toHaveURL(/reader-1\.html$/);
+		await readerPage.keyboard.press('x');
+		await expect(readerPage).toHaveURL(/reader-2\.html$/);
+
+		await optionsPage.bringToFront();
+		await optionsPage.fill('[data-domain-shortcut-action="next"]', '');
+		await optionsPage.click('.card-footer [data-action="save"]');
+		await expect(optionsPage.locator('.notice')).toContainText('Guardado');
+
 		await optionsPage.close();
 	});
 

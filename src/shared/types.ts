@@ -1,3 +1,5 @@
+import type { ShortcutSettings } from './shortcuts';
+
 export type MappingActionKey = 'next' | 'prev' | 'main';
 
 export type MappingAction = {
@@ -17,6 +19,7 @@ export type MappingEntry = {
 	hostAliases: string[];
 	readingPrefix: string;
 	readingPrefixes: string[];
+	shortcuts?: Partial<ShortcutSettings>;
 	actions: MappingActions;
 	createdAt: number;
 	updatedAt: number;

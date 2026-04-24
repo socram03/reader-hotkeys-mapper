@@ -1,4 +1,5 @@
 import { extensionStorage } from './extensionStorage';
+import { normalizeShortcutOverrides } from './shortcuts';
 import { STORAGE_KEYS } from './storageKeys';
 import { listToMultilineText, multilineTextToList, toLineArray, uniqueStrings } from './textLists';
 import type { MappingAction, MappingActions, MappingEntry, MappingState } from './types';
@@ -77,6 +78,7 @@ export function normalizeUserMappingEntry(entry: unknown): MappingEntry | null {
 		hostAliases: normalizeHostList(entry.hostAliases ?? entry.hosts, host),
 		readingPrefix,
 		readingPrefixes: normalizePrefixList(entry.readingPrefixes ?? entry.paths, readingPrefix),
+		shortcuts: normalizeShortcutOverrides(entry.shortcuts),
 		actions: {
 			next: actions.next,
 			prev: actions.prev ?? createEmptyMappingAction(),
@@ -124,6 +126,7 @@ export function createBlankMapping(host: string): MappingEntry {
 		hostAliases: [],
 		readingPrefix: '/leer/',
 		readingPrefixes: [],
+		shortcuts: {},
 		actions: {
 			next: createEmptyMappingAction(),
 			prev: createEmptyMappingAction(),

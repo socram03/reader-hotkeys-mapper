@@ -1,5 +1,6 @@
 import type { JSX } from 'preact';
 import { useState } from 'preact/hooks';
+import { formatShortcutKey, normalizeShortcutKeyInput, SHORTCUT_LABELS } from '../shared';
 import type { MappingEntry } from './types';
 
 type MappingCardProps = {
@@ -137,6 +138,14 @@ export function MappingCard(props: MappingCardProps) {
 					</div>
 				</ActionSection>
 
+				<ActionSection title="Atajos de este mapeo" arrow="⌘">
+					<div class="field-grid cols-3">
+						<ShortcutField action="next" entry={entry} onFieldChange={onFieldChange} />
+						<ShortcutField action="prev" entry={entry} onFieldChange={onFieldChange} />
+						<ShortcutField action="main" entry={entry} onFieldChange={onFieldChange} />
+					</div>
+				</ActionSection>
+
 				{/* Action sections */}
 				<ActionBlock
 					title="Siguiente"
@@ -175,6 +184,26 @@ export function MappingCard(props: MappingCardProps) {
 				</button>
 			</div>
 		</article>
+	);
+}
+
+function ShortcutField(props: {
+	action: 'next' | 'prev' | 'main';
+	entry: MappingEntry;
+	onFieldChange: MappingCardProps['onFieldChange'];
+}) {
+	const value = props.entry.shortcuts?.[props.action] || '';
+
+	return (
+		<Field label={SHORTCUT_LABELS[props.action]}>
+			<input
+				type="text"
+				data-domain-shortcut-action={props.action}
+				value={value ? formatShortcutKey(normalizeShortcutKeyInput(value)) : ''}
+				placeholder="Usar global"
+				onInput={handleText(props.entry.id, `shortcuts.${props.action}`, props.onFieldChange)}
+			/>
+		</Field>
 	);
 }
 

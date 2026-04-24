@@ -22,6 +22,7 @@ import {
 	normalizeHostList,
 	normalizePrefix,
 	normalizePrefixList,
+	normalizeShortcutOverrides,
 	normalizeShortcutSettings,
 	normalizeShortcutKeyInput,
 	normalizeUserMappings,
@@ -511,6 +512,16 @@ function patchEntry(entry: MappingEntry, field: string, value: string | boolean)
 	if (field === 'enabled') return { ...entry, enabled: Boolean(value) };
 	if (field === 'hostAliases') return { ...entry, hostAliases: multilineTextToList(String(value)) };
 	if (field === 'readingPrefixes') return { ...entry, readingPrefixes: multilineTextToList(String(value)) };
+	if (field.startsWith('shortcuts.')) {
+		const action = field.replace('shortcuts.', '');
+		return {
+			...entry,
+			shortcuts: {
+				...(entry.shortcuts || {}),
+				[action]: String(value)
+			}
+		};
+	}
 
 	const [section, key] = field.split('.');
 	if (!section || !key || !['next', 'prev', 'main'].includes(section)) return entry;
@@ -541,6 +552,7 @@ function normalizeEntryForSave(entry: MappingEntry): MappingEntry {
 		hostAliases: normalizeHostList(entry.hostAliases, host) as string[],
 		readingPrefix,
 		readingPrefixes: normalizePrefixList(entry.readingPrefixes, readingPrefix) as string[],
+		shortcuts: normalizeShortcutOverrides(entry.shortcuts),
 		actions: {
 			next: {
 				...entry.actions.next,

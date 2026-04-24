@@ -1,6 +1,7 @@
 import {
 	DEFAULT_SHORTCUTS,
 	GLOBAL_SETTINGS_KEY,
+	normalizeShortcutOverrides,
 	normalizeShortcutKeyInput,
 	normalizeShortcutSettings
 } from '../shared/shortcuts';
@@ -495,9 +496,13 @@ async function loadPersistedState() {
 function applyStoredSettings() {
 	const globalSettings = runtime.persisted.settings[GLOBAL_SETTINGS_KEY] || {};
 	const siteSettings = runtime.persisted.settings[runtime.site.id] || {};
+	const siteShortcutOverrides = runtime.site.shortcutOverrides || siteSettings.shortcuts || {};
 	runtime.settings.focusMode = Boolean(siteSettings.focusMode);
 	runtime.settings.autoNext = Boolean(siteSettings.autoNext);
-	runtime.settings.shortcuts = normalizeShortcutSettings(globalSettings.shortcuts);
+	runtime.settings.shortcuts = {
+		...normalizeShortcutSettings(globalSettings.shortcuts),
+		...normalizeShortcutOverrides(siteShortcutOverrides)
+	};
 	runtime.autoScrollSpeed = normalizeAutoScrollSpeed(siteSettings.autoScrollSpeed);
 }
 
@@ -659,12 +664,13 @@ function getMappedSite(location) {
 		label: mapping.label || `Custom: ${location.host}`,
 		hosts: getAllMappingHosts(mapping),
 		paths: getAllReadingPrefixes(mapping),
-		shortcuts: [
-			{ key: 'ArrowRight', description: 'Siguiente capitulo' },
-			{ key: 'ArrowLeft', description: 'Capitulo anterior' },
-			{ key: 'm', description: 'Ir a la pagina principal' }
-		],
-		getNextHref: () => resolveMappedHref(mapping.actions?.next),
+			shortcuts: [
+				{ key: 'ArrowRight', description: 'Siguiente capitulo' },
+				{ key: 'ArrowLeft', description: 'Capitulo anterior' },
+				{ key: 'm', description: 'Ir a la pagina principal' }
+			],
+			shortcutOverrides: normalizeShortcutOverrides(mapping.shortcuts),
+			getNextHref: () => resolveMappedHref(mapping.actions?.next),
 		getPrevHref: () => resolveMappedHref(mapping.actions?.prev),
 		getMainHref: () => resolveMappedHref(mapping.actions?.main),
 		getFocusCss: () => ''
@@ -1532,10 +1538,11 @@ function normalizeUserMappingEntry(entry) {
 		host,
 		label: String(entry.label || host).trim(),
 		enabled: entry.enabled !== false,
-		hostAliases: normalizeHostList(entry.hostAliases || entry.hosts || [], host),
-		readingPrefix,
-		readingPrefixes: normalizePrefixList(entry.readingPrefixes || entry.paths || [], readingPrefix),
-		actions: normalizeMappingActions(entry.actions),
+			hostAliases: normalizeHostList(entry.hostAliases || entry.hosts || [], host),
+			readingPrefix,
+			readingPrefixes: normalizePrefixList(entry.readingPrefixes || entry.paths || [], readingPrefix),
+			shortcuts: normalizeShortcutOverrides(entry.shortcuts),
+			actions: normalizeMappingActions(entry.actions),
 		createdAt: entry.createdAt || Date.now(),
 		updatedAt: entry.updatedAt || entry.createdAt || Date.now()
 	};

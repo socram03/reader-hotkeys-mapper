@@ -66,6 +66,17 @@ export function normalizeShortcutSettings(value: unknown): ShortcutSettings {
 	}, {} as ShortcutSettings);
 }
 
+export function normalizeShortcutOverrides(value: unknown): Partial<ShortcutSettings> {
+	const record = isRecord(value) ? value : {};
+
+	return SHORTCUT_ACTIONS.reduce((settings, action) => {
+		const raw = record[action];
+		if (raw === undefined || raw === null || String(raw).trim() === '') return settings;
+		settings[action] = normalizeShortcutKeyInput(raw, DEFAULT_SHORTCUTS[action]);
+		return settings;
+	}, {} as Partial<ShortcutSettings>);
+}
+
 export function normalizeShortcutKeyInput(value: unknown, fallback = ''): string {
 	const raw = String(value ?? '').trim();
 	if (!raw) return fallback;
