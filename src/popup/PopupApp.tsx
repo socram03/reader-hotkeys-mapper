@@ -93,6 +93,7 @@ export function PopupApp() {
 	const hasReader = Boolean(status?.siteDetected);
 	const hasSupportedSite = Boolean(status?.supportedSiteDetected || hasReader);
 	const hasCandidateMapping = Boolean(status?.canToggleActivation);
+	const hasMappingCandidate = Boolean(status?.mappingCandidateDetected);
 	const isBuiltInSite = Boolean(status?.isBuiltInSite);
 	const matchedMappingEnabled = status?.matchedMappingEnabled !== false;
 	const zenActive = Boolean(status?.settings?.focusMode);
@@ -105,6 +106,8 @@ export function PopupApp() {
 		? 'Sitio personalizado desactivado'
 		: hasReader
 			? status?.siteLabel || 'Lector detectado'
+			: hasMappingCandidate
+				? 'Lector probable'
 			: hasSupportedSite
 				? `${status?.siteLabel || 'Sitio soportado'} - pagina fuera del lector`
 				: 'Sin mapeo activo';
@@ -177,7 +180,7 @@ export function PopupApp() {
 					disabled={Boolean(error) || !targetTab?.id}
 					onClick={() => runTabAction('reader:start-mapper', { closeAfter: true })}
 				>
-					{hasCandidateMapping ? '⌥ Ajustar mapeo' : '⌥ Iniciar mapeo'}
+					{hasCandidateMapping ? '⌥ Ajustar mapeo' : hasMappingCandidate ? '⌥ Mapear lector' : '⌥ Iniciar mapeo'}
 				</button>
 				<button
 					id="toggle-site-activation"

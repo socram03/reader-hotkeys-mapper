@@ -256,6 +256,7 @@ function getReaderStatus() {
 	const resumeTarget = getResumeTarget(window.location);
 	const currentChapterHref = getCurrentChapterHref();
 	const supportedSite = runtime.site || builtInHostSite || null;
+	const mappingCandidate = !supportedSite && !matchedMapping ? detectMappingCandidate() : null;
 
 	return {
 		ok: true,
@@ -276,6 +277,8 @@ function getReaderStatus() {
 		matchedMappingLabel: matchedMapping?.label || '',
 		matchedMappingEnabled: matchedMapping ? matchedMapping.enabled !== false : null,
 		canToggleActivation: Boolean(matchedMapping),
+		mappingCandidateDetected: Boolean(mappingCandidate),
+		mappingCandidateReason: mappingCandidate?.reason || '',
 		hostMappingCount: getHostUserMappings(window.location.host).length,
 		currentChapterHref,
 		currentWorkHref: getCurrentMainHref(),
@@ -300,6 +303,22 @@ function getReaderStatus() {
 			chapterMap: Boolean(document.getElementById(CHAPTER_MAP_OVERLAY_ID))
 		}
 	};
+}
+
+function detectMappingCandidate() {
+	const linkTexts = Array.from(document.querySelectorAll('a[href]'))
+		.map(link => getElementText(link).toLowerCase())
+		.filter(Boolean);
+
+	const hasNext = linkTexts.some(text => /\b(siguiente|next|proximo|próximo)\b/.test(text));
+	const hasPrev = linkTexts.some(text => /\b(anterior|prev|previous)\b/.test(text));
+	const hasMain = linkTexts.some(text => /\b(serie|series|indice|índice|index|obra)\b/.test(text));
+
+	if (hasNext && (hasPrev || hasMain)) {
+		return { reason: 'Tiene enlaces de navegacion de lector' };
+	}
+
+	return null;
 }
 
 function bootstrap() {

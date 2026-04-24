@@ -74,6 +74,8 @@ export type ReaderStatus = {
 	siteLabel?: string;
 	isBuiltInSite?: boolean;
 	canToggleActivation?: boolean;
+	mappingCandidateDetected?: boolean;
+	mappingCandidateReason?: string;
 	matchedMappingEnabled?: boolean | null;
 	matchedMappingLabel?: string;
 	hostMappingCount?: number;
