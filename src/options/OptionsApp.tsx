@@ -11,11 +11,13 @@ import {
 	formatShortcutKey,
 	getAllMappingHosts,
 	getBestTargetTab,
+	getMessage,
 	GLOBAL_SETTINGS_KEY,
 	inferPathPrefix,
 	importFullBackup,
 	isFullBackup,
 	loadFullBackup,
+	loadLanguage,
 	loadLatestReadExport,
 	loadStorageMode,
 	loadUserMappings,
@@ -31,6 +33,7 @@ import {
 	normalizeUserMappings,
 	removeMappingEntry,
 	saveUserMappings,
+	saveLanguage,
 	sendReaderMessage,
 	SHORTCUT_ACTIONS,
 	SHORTCUT_LABELS,
@@ -39,7 +42,7 @@ import {
 	upsertMappingEntry
 } from '../shared';
 import { MappingCard } from './MappingCard';
-import type { ReaderModeSettings, ShortcutSettings, StorageMode } from '../shared';
+import type { Language, ReaderModeSettings, ShortcutSettings, StorageMode } from '../shared';
 import type { MappingEntry, MappingState } from './types';
 
 (globalThis as any).__readerHotkeysTest = {
@@ -52,6 +55,7 @@ export function OptionsApp() {
 	const [shortcutSettings, setShortcutSettings] = useState<ShortcutSettings>(normalizeShortcutSettings(null));
 	const [readerModeSettings, setReaderModeSettings] = useState<ReaderModeSettings>(normalizeReaderModeSettings(null));
 	const [storageMode, setStorageModeState] = useState<StorageMode>('local');
+	const [language, setLanguage] = useState<Language>('es');
 	const [resumeSummary, setResumeSummary] = useState({ totalWorks: 0, totalEntries: 0 });
 	const [message, setMessageState] = useState<{ text: string; error: boolean }>({ text: '', error: false });
 	const importFileRef = useRef<HTMLInputElement>(null);
@@ -86,18 +90,20 @@ export function OptionsApp() {
 
 	async function initialize() {
 		try {
-			const [nextMappingState, latestReads, nextShortcutSettings, nextReaderModeSettings, nextStorageMode] = await Promise.all([
+			const [nextMappingState, latestReads, nextShortcutSettings, nextReaderModeSettings, nextStorageMode, nextLanguage] = await Promise.all([
 				loadUserMappings(),
 				loadLatestReadExport(),
 				loadGlobalShortcutSettings(),
 				loadReaderModeSettings(),
-				loadStorageMode()
+				loadStorageMode(),
+				loadLanguage()
 			]);
 
 			setMappingState(nextMappingState);
 			setShortcutSettings(nextShortcutSettings);
 			setReaderModeSettings(nextReaderModeSettings);
 			setStorageModeState(nextStorageMode);
+			setLanguage(nextLanguage);
 			setResumeSummary({
 				totalWorks: latestReads.totalWorks,
 				totalEntries: latestReads.totalEntries
@@ -203,6 +209,15 @@ export function OptionsApp() {
 			setMessage(nextMode === 'sync' ? 'Sync activado para mapeos y settings.' : 'Sync desactivado. Mapeos y settings quedan locales.');
 		} catch (error) {
 			setMessage(`No pude cambiar sync: ${getErrorMessage(error)}`, true);
+		}
+	}
+
+	async function saveSelectedLanguage() {
+		try {
+			await saveLanguage(language);
+			setMessage(getMessage(language, 'language.saved'));
+		} catch (error) {
+			setMessage(getErrorMessage(error), true);
 		}
 	}
 
@@ -438,16 +453,13 @@ async function migrateFromTargetTab(mappingId: string) {
 						<div class="hero-icon">
 							<svg viewBox="0 0 24 24"><path d="M15 7.5V2H9v5.5l3 3 3-3zM7.5 9H2v6h5.5l3-3-3-3zM9 16.5V22h6v-5.5l-3-3-3 3zM16.5 9l-3 3 3 3H22V9h-5.5z"/></svg>
 						</div>
-						<div class="hero-titles">
-							<p class="eyebrow">Reader Hotkeys</p>
-							<h1>Opciones y mapeos</h1>
+							<div class="hero-titles">
+								<p class="eyebrow">Reader Hotkeys</p>
+								<h1>{getMessage(language, 'options.title')}</h1>
+							</div>
 						</div>
+						<p class="hero-desc">{getMessage(language, 'options.description')}</p>
 					</div>
-					<p class="hero-desc">
-						Gestiona dominios, prefijos de lectura, alias de migracion y selectores CSS.
-						Los sitios personalizados quedan inactivos hasta que los actives.
-					</p>
-				</div>
 				<div class="hero-actions">
 					<button id="start-picker" class="primary" type="button" onClick={startPickerOnTargetTab}>
 						Picker en pestana
@@ -484,6 +496,28 @@ async function migrateFromTargetTab(mappingId: string) {
 					{message.text}
 				</section>
 			)}
+
+			<section class="shortcut-settings">
+				<div class="shortcut-settings-head">
+					<div>
+						<h2>{getMessage(language, 'language.title')}</h2>
+					</div>
+					<button id="save-language" type="button" class="primary" onClick={() => void saveSelectedLanguage()}>
+						{getMessage(language, 'language.save')}
+					</button>
+				</div>
+				<label class="shortcut-field">
+					<span class="field-label">{getMessage(language, 'language.label')}</span>
+					<select
+						id="language-select"
+						value={language}
+						onChange={event => setLanguage(event.currentTarget.value === 'en' ? 'en' : 'es')}
+					>
+						<option value="es">Español</option>
+						<option value="en">English</option>
+					</select>
+				</label>
+			</section>
 
 			<section class="shortcut-settings">
 				<div class="shortcut-settings-head">

@@ -420,7 +420,8 @@ button.ghost:hover {
 }
 
 input[type="text"],
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
@@ -432,7 +433,8 @@ textarea {
 }
 
 input[type="text"]:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--accent-mid);
   box-shadow: 0 0 0 2px var(--accent-dim);

@@ -2,10 +2,12 @@ import { useEffect, useState } from 'preact/hooks';
 import {
 	ensureReaderScript,
 	getBestTargetTab,
+	getMessage,
+	loadLanguage,
 	loadLatestReadExport,
 	sendReaderMessage
 } from '../shared';
-import type { LatestReadExportEntry, ReaderStatus } from '../shared';
+import type { Language, LatestReadExportEntry, ReaderStatus } from '../shared';
 
 type TargetTab = chrome.tabs.Tab | null;
 
@@ -13,6 +15,7 @@ export function PopupApp() {
 	const [targetTab, setTargetTab] = useState<TargetTab>(null);
 	const [status, setStatus] = useState<ReaderStatus | null>(null);
 	const [continueReading, setContinueReading] = useState<LatestReadExportEntry[]>([]);
+	const [language, setLanguage] = useState<Language>('es');
 	const [error, setError] = useState('');
 
 	useEffect(() => {
@@ -21,6 +24,8 @@ export function PopupApp() {
 
 	async function initialize() {
 		try {
+			const nextLanguage = await loadLanguage();
+			setLanguage(nextLanguage);
 			const tab = await getBestTargetTab();
 			setTargetTab(tab);
 			if (!tab?.id) {
@@ -104,10 +109,10 @@ export function PopupApp() {
 
 	const activationMessage = hasCandidateMapping && !matchedMappingEnabled
 		? 'Sitio personalizado desactivado'
-		: hasReader
-			? status?.siteLabel || 'Lector detectado'
+			: hasReader
+				? status?.siteLabel || 'Lector detectado'
 			: hasMappingCandidate
-				? 'Lector probable'
+				? getMessage(language, 'popup.probableReader')
 			: hasSupportedSite
 				? `${status?.siteLabel || 'Sitio soportado'} - pagina fuera del lector`
 				: 'Sin mapeo activo';
@@ -180,7 +185,11 @@ export function PopupApp() {
 					disabled={Boolean(error) || !targetTab?.id}
 					onClick={() => runTabAction('reader:start-mapper', { closeAfter: true })}
 				>
-					{hasCandidateMapping ? '⌥ Ajustar mapeo' : hasMappingCandidate ? '⌥ Mapear lector' : '⌥ Iniciar mapeo'}
+					{hasCandidateMapping
+						? getMessage(language, 'popup.adjustMapping')
+						: hasMappingCandidate
+							? getMessage(language, 'popup.mapReader')
+							: getMessage(language, 'popup.startMapping')}
 				</button>
 				<button
 					id="toggle-site-activation"

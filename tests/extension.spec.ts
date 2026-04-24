@@ -39,6 +39,22 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await readerPage.keyboard.press('ArrowRight');
 		await expect(readerPage).toHaveURL(/reader-1\.html$/);
 
+		const i18nOptionsPage = await context.newPage();
+		await i18nOptionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+		await i18nOptionsPage.selectOption('#language-select', 'en');
+		await i18nOptionsPage.click('#save-language');
+		await expect(i18nOptionsPage.locator('h1')).toContainText('Options and mappings');
+
+		const englishPopup = await context.newPage();
+		await englishPopup.goto(`chrome-extension://${extensionId}/popup.html`);
+		await expect(englishPopup.locator('#start-mapper')).toContainText('Map reader');
+		await englishPopup.close();
+
+		await i18nOptionsPage.selectOption('#language-select', 'es');
+		await i18nOptionsPage.click('#save-language');
+		await expect(i18nOptionsPage.locator('h1')).toContainText('Opciones y mapeos');
+		await i18nOptionsPage.close();
+
 		const candidatePopup = await context.newPage();
 		await candidatePopup.goto(`chrome-extension://${extensionId}/popup.html`);
 		await expect(candidatePopup.locator('.status-card')).toContainText('Lector probable');
