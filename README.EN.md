@@ -63,8 +63,22 @@ This generates:
 
 - `background.js`
 - `content.js`
+- `continue.js`
 - `options.js`
 - `popup.js`
+
+## Chrome Web Store Distribution
+
+For normal installation without enabling Developer Mode, publish ChapterPilot as an unlisted Chrome Web Store extension.
+
+Build the upload ZIP:
+
+```bash
+bun install
+bun run package:chrome
+```
+
+The ZIP is created in `dist/`. Use [docs/chrome-web-store.md](./docs/chrome-web-store.md) for the release checklist and [docs/privacy-policy.md](./docs/privacy-policy.md) as the privacy policy source.
 
 Load the extension in Chrome:
 
