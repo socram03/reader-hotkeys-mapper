@@ -88,6 +88,8 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await waitForExtensionReady(readerPage);
 		await readerPage.keyboard.press('z');
 		await expect(readerPage.locator('header')).toBeHidden();
+		await readerPage.keyboard.press('z');
+		await expect(readerPage.locator('header')).toBeVisible();
 
 		await readerPage.keyboard.press('a');
 		await readerPage.keyboard.press('+');
@@ -221,6 +223,25 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await optionsPage.fill('[data-domain-shortcut-action="next"]', '');
 		await optionsPage.click('.card-footer [data-action="save"]');
 		await expect(optionsPage.locator('.notice')).toContainText('Guardado');
+
+		await optionsPage.fill('[data-reading-setting="backgroundColor"]', '#101010');
+		await optionsPage.fill('[data-reading-setting="maxWidth"]', '720');
+		await optionsPage.click('#save-reading-mode');
+		await expect(optionsPage.locator('.notice')).toContainText('Modo lectura guardado');
+
+		await readerPage.goto(`${baseURL}/custom/reader-1.html`);
+		await ensureReaderInActiveTab(optionsPage, readerPage);
+		await waitForExtensionReady(readerPage);
+		await readerPage.keyboard.press('z');
+		await expect(readerPage.locator('body')).toHaveCSS('background-color', 'rgb(16, 16, 16)');
+		await expect(readerPage.locator('main')).toHaveCSS('max-width', '720px');
+		await readerPage.keyboard.press('z');
+
+		await optionsPage.bringToFront();
+		await optionsPage.fill('[data-reading-setting="backgroundColor"]', '#000000');
+		await optionsPage.fill('[data-reading-setting="maxWidth"]', '0');
+		await optionsPage.click('#save-reading-mode');
+		await expect(optionsPage.locator('.notice')).toContainText('Modo lectura guardado');
 
 		await optionsPage.close();
 	});

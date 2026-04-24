@@ -1,6 +1,7 @@
 export * from './backup';
 export * from './extensionStorage';
 export * from './mappings';
+export * from './readerMode';
 export * from './reader';
 export * from './resume';
 export * from './shortcuts';

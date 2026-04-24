@@ -22,6 +22,7 @@ import {
 	normalizeHostList,
 	normalizePrefix,
 	normalizePrefixList,
+	normalizeReaderModeSettings,
 	normalizeShortcutOverrides,
 	normalizeShortcutSettings,
 	normalizeShortcutKeyInput,
@@ -36,7 +37,7 @@ import {
 	upsertMappingEntry
 } from '../shared';
 import { MappingCard } from './MappingCard';
-import type { ShortcutSettings } from '../shared';
+import type { ReaderModeSettings, ShortcutSettings } from '../shared';
 import type { MappingEntry, MappingState } from './types';
 
 (globalThis as any).__readerHotkeysTest = {
@@ -47,6 +48,7 @@ import type { MappingEntry, MappingState } from './types';
 export function OptionsApp() {
 	const [mappingState, setMappingState] = useState<MappingState>({ version: 3, entries: [] });
 	const [shortcutSettings, setShortcutSettings] = useState<ShortcutSettings>(normalizeShortcutSettings(null));
+	const [readerModeSettings, setReaderModeSettings] = useState<ReaderModeSettings>(normalizeReaderModeSettings(null));
 	const [resumeSummary, setResumeSummary] = useState({ totalWorks: 0, totalEntries: 0 });
 	const [message, setMessageState] = useState<{ text: string; error: boolean }>({ text: '', error: false });
 	const importFileRef = useRef<HTMLInputElement>(null);
@@ -81,14 +83,16 @@ export function OptionsApp() {
 
 	async function initialize() {
 		try {
-			const [nextMappingState, latestReads, nextShortcutSettings] = await Promise.all([
+			const [nextMappingState, latestReads, nextShortcutSettings, nextReaderModeSettings] = await Promise.all([
 				loadUserMappings(),
 				loadLatestReadExport(),
-				loadGlobalShortcutSettings()
+				loadGlobalShortcutSettings(),
+				loadReaderModeSettings()
 			]);
 
 			setMappingState(nextMappingState);
 			setShortcutSettings(nextShortcutSettings);
+			setReaderModeSettings(nextReaderModeSettings);
 			setResumeSummary({
 				totalWorks: latestReads.totalWorks,
 				totalEntries: latestReads.totalEntries
@@ -128,6 +132,13 @@ export function OptionsApp() {
 		}));
 	}
 
+	function updateReaderMode(field: keyof ReaderModeSettings, value: string) {
+		setReaderModeSettings(current => ({
+			...current,
+			[field]: field === 'backgroundColor' ? value : Number(value)
+		}));
+	}
+
 	async function saveShortcuts() {
 		try {
 			const normalized = normalizeShortcutSettings(shortcutSettings);
@@ -153,6 +164,27 @@ export function OptionsApp() {
 			await extensionStorage.set({ [STORAGE_KEYS.settings]: settings });
 			setShortcutSettings(normalized);
 			setMessage('Atajos guardados. Recarga la pestana lectora para aplicar cambios.');
+		} catch (error) {
+			setMessage(getErrorMessage(error), true);
+		}
+	}
+
+	async function saveReaderMode() {
+		try {
+			const normalized = normalizeReaderModeSettings(readerModeSettings);
+			const data = await extensionStorage.get([STORAGE_KEYS.settings]);
+			const settings: Record<string, unknown> = isRecord(data[STORAGE_KEYS.settings])
+				? Object.assign({}, data[STORAGE_KEYS.settings])
+				: {};
+			const globalSettings: Record<string, unknown> = isRecord(settings[GLOBAL_SETTINGS_KEY]) ? { ...settings[GLOBAL_SETTINGS_KEY] } : {};
+			settings[GLOBAL_SETTINGS_KEY] = {
+				...globalSettings,
+				readerMode: normalized
+			};
+
+			await extensionStorage.set({ [STORAGE_KEYS.settings]: settings });
+			setReaderModeSettings(normalized);
+			setMessage('Modo lectura guardado. Recarga la pestana lectora para aplicar cambios.');
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
@@ -461,6 +493,55 @@ async function migrateFromTargetTab(mappingId: string) {
 				</div>
 			</section>
 
+			<section class="shortcut-settings">
+				<div class="shortcut-settings-head">
+					<div>
+						<h2>Modo lectura</h2>
+					</div>
+					<button id="save-reading-mode" type="button" class="primary" onClick={() => void saveReaderMode()}>
+						Guardar modo lectura
+					</button>
+				</div>
+				<div class="shortcut-settings-grid">
+					<label class="shortcut-field">
+						<span class="field-label">Fondo zen</span>
+						<input
+							type="text"
+							data-reading-setting="backgroundColor"
+							value={readerModeSettings.backgroundColor}
+							onInput={event => updateReaderMode('backgroundColor', event.currentTarget.value)}
+						/>
+					</label>
+					<label class="shortcut-field">
+						<span class="field-label">Ancho maximo px (0 = completo)</span>
+						<input
+							type="text"
+							data-reading-setting="maxWidth"
+							value={String(readerModeSettings.maxWidth)}
+							onInput={event => updateReaderMode('maxWidth', event.currentTarget.value)}
+						/>
+					</label>
+					<label class="shortcut-field">
+						<span class="field-label">Separacion</span>
+						<input
+							type="text"
+							data-reading-setting="imageGap"
+							value={String(readerModeSettings.imageGap)}
+							onInput={event => updateReaderMode('imageGap', event.currentTarget.value)}
+						/>
+					</label>
+					<label class="shortcut-field">
+						<span class="field-label">Brillo</span>
+						<input
+							type="text"
+							data-reading-setting="brightness"
+							value={String(readerModeSettings.brightness)}
+							onInput={event => updateReaderMode('brightness', event.currentTarget.value)}
+						/>
+					</label>
+				</div>
+			</section>
+
 			{/* ── Summary ── */}
 			<section class="summary">
 				<div class="stat-card">
@@ -585,6 +666,13 @@ async function loadGlobalShortcutSettings(): Promise<ShortcutSettings> {
 	const settings = isRecord(data[STORAGE_KEYS.settings]) ? data[STORAGE_KEYS.settings] : {};
 	const globalSettings = isRecord(settings[GLOBAL_SETTINGS_KEY]) ? settings[GLOBAL_SETTINGS_KEY] : {};
 	return normalizeShortcutSettings(globalSettings.shortcuts);
+}
+
+async function loadReaderModeSettings(): Promise<ReaderModeSettings> {
+	const data = await extensionStorage.get([STORAGE_KEYS.settings]);
+	const settings = isRecord(data[STORAGE_KEYS.settings]) ? data[STORAGE_KEYS.settings] : {};
+	const globalSettings = isRecord(settings[GLOBAL_SETTINGS_KEY]) ? settings[GLOBAL_SETTINGS_KEY] : {};
+	return normalizeReaderModeSettings(globalSettings.readerMode);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

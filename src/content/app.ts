@@ -1,4 +1,9 @@
 import {
+	normalizeReaderModeSettings,
+	DEFAULT_READER_MODE,
+	type ReaderModeSettings
+} from '../shared/readerMode';
+import {
 	DEFAULT_SHORTCUTS,
 	GLOBAL_SETTINGS_KEY,
 	normalizeShortcutOverrides,
@@ -163,7 +168,8 @@ const runtime = {
 	settings: {
 		focusMode: false,
 		autoNext: false,
-		shortcuts: normalizeShortcutSettings(null)
+		shortcuts: normalizeShortcutSettings(null),
+		readerMode: DEFAULT_READER_MODE as ReaderModeSettings
 	},
 	nextHref: '',
 	prefetchedHref: '',
@@ -499,6 +505,7 @@ function applyStoredSettings() {
 	const siteShortcutOverrides = runtime.site.shortcutOverrides || siteSettings.shortcuts || {};
 	runtime.settings.focusMode = Boolean(siteSettings.focusMode);
 	runtime.settings.autoNext = Boolean(siteSettings.autoNext);
+	runtime.settings.readerMode = normalizeReaderModeSettings(globalSettings.readerMode);
 	runtime.settings.shortcuts = {
 		...normalizeShortcutSettings(globalSettings.shortcuts),
 		...normalizeShortcutOverrides(siteShortcutOverrides)
@@ -731,6 +738,9 @@ function ensureFocusStyle() {
 		document.head.appendChild(style);
 	}
 
+	const readerMode = normalizeReaderModeSettings(runtime.settings.readerMode);
+	const maxWidth = readerMode.maxWidth > 0 ? `${readerMode.maxWidth}px` : '100%';
+
 	style.textContent = `
 		body.${FOCUS_CLASS} header,
 		body.${FOCUS_CLASS} footer,
@@ -753,12 +763,21 @@ function ensureFocusStyle() {
 		body.${FOCUS_CLASS} .container,
 		body.${FOCUS_CLASS} main,
 		body.${FOCUS_CLASS} [chapter] {
-			max-width: 100% !important;
+			max-width: ${maxWidth} !important;
 			width: 100% !important;
+			margin-left: auto !important;
+			margin-right: auto !important;
 		}
 
 		body.${FOCUS_CLASS} {
-			background: #000 !important;
+			background: ${readerMode.backgroundColor} !important;
+		}
+
+		body.${FOCUS_CLASS} img,
+		body.${FOCUS_CLASS} picture,
+		body.${FOCUS_CLASS} .page {
+			margin-bottom: ${readerMode.imageGap}px !important;
+			filter: brightness(${readerMode.brightness}%) !important;
 		}
 
 		${runtime.site.getFocusCss?.() || ''}
