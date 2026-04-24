@@ -65,6 +65,14 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await ensureReaderInTab(optionsPage, targetTabId);
 		await readerPage.bringToFront();
 		await waitForExtensionReady(readerPage);
+		await readerPage.keyboard.press('c');
+		await expect(readerPage.locator('[data-chapter-results="true"] [data-chapter-href]')).toHaveCount(3);
+		await expect(readerPage.locator('[data-chapter-results="true"]')).toContainText('Capitulo 1');
+		await readerPage.keyboard.press('Escape');
+
+		await ensureReaderInTab(optionsPage, targetTabId);
+		await readerPage.bringToFront();
+		await waitForExtensionReady(readerPage);
 		await readerPage.keyboard.press('m');
 		await expect(readerPage).toHaveURL(/series\.html$/);
 

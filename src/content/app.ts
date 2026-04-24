@@ -425,9 +425,14 @@ function applyStoredSettings() {
 
 function handleKeydown(event) {
 	if (event.ctrlKey || event.metaKey || event.altKey) return;
-	if (isEditableTarget(event.target)) return;
 
 	const key = normalizeKey(event.key);
+	if (isEditableTarget(event.target)) {
+		if (key === 'Escape' && (closeMapper() || closeChapterMap() || closeShortcutHelp())) {
+			event.preventDefault();
+		}
+		return;
+	}
 
 	if (handleGlobalShortcut(key)) {
 		event.preventDefault();
@@ -453,6 +458,7 @@ function handleGlobalShortcut(key) {
 	const hasOverlay = Boolean(
 		document.getElementById(MAPPER_OVERLAY_ID)
 		|| document.getElementById(HELP_OVERLAY_ID)
+		|| document.getElementById(CHAPTER_MAP_OVERLAY_ID)
 	);
 
 	if (!runtime.site && !hasOverlay) return false;
@@ -1695,6 +1701,15 @@ function escapeAttribute(value) {
 	return String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"');
 }
 
+function escapeHtml(value) {
+	return String(value)
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&#39;');
+}
+
 function toggleChapterMap() {
 	if (closeChapterMap()) return;
 
@@ -2110,6 +2125,16 @@ function getAbsoluteHref(href) {
 
 	try {
 		return new URL(href, window.location.origin).href;
+	} catch {
+		return '';
+	}
+}
+
+function getAbsoluteHrefFromBase(baseHref, href) {
+	if (!href) return '';
+
+	try {
+		return new URL(href, baseHref || window.location.origin).href;
 	} catch {
 		return '';
 	}
