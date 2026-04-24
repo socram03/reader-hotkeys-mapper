@@ -92,9 +92,8 @@ Los tests validan el flujo completo: mapeo visual, activacion de sitios, navegac
 ## Antes de Publicar
 
 1. Revisa `manifest.json`: nombre, descripcion y version.
-2. Documenta el uso de `"<all_urls>"` si hace falta.
-3. Agrega iconos PNG en varios tamanos, idealmente `16`, `48` y `128`.
-4. Agrega capturas del popup y la pagina de opciones.
+2. Mantén `"<all_urls>"` en `content_scripts` solo si necesitas que los atajos funcionen sin abrir primero el popup. La extensión no conserva `host_permissions`; la inyección manual usa `activeTab` + `scripting`.
+3. Agrega capturas del popup y la pagina de opciones.
 
 ## Licencia
 

@@ -94,9 +94,8 @@ The tests validate the full workflow: visual mapping, site activation, chapter n
 ## Before Publishing
 
 1. Check `manifest.json`: name, description, and version.
-2. Document the use of `"<all_urls>"` if needed.
-3. Add PNG icons in several sizes, ideally `16`, `48`, and `128`.
-4. Add screenshots of the popup and options page.
+2. Keep `"<all_urls>"` in `content_scripts` only if shortcuts must work before opening the popup. The extension no longer keeps `host_permissions`; manual injection uses `activeTab` + `scripting`.
+3. Add screenshots of the popup and options page.
 
 ## License
 
