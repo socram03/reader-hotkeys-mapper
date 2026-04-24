@@ -1,7 +1,7 @@
-# Reader Hotkeys Mapper
+# ChapterPilot
 
-**Browser extension** that lets you read manga and manhwa using only your keyboard.
-It includes native support for several popular sites and a local mapping system to add other websites without changing the code.
+**Browser extension** that keeps manga, manhwa, and web chapter reading flowing across sites.
+It combines keyboard navigation, local site mapping, reading progress, URL repair, backups, optional sync, and focused reading controls.
 
 Developed in **TypeScript**, bundled with **Bun**. The popup and options UI are built with **Preact**, and dependencies are managed with **Bun**.
 
@@ -13,19 +13,22 @@ Spanish version: [README.ES.md](./README.ES.md)
 - Back to series/index: `M`
 - Fast scroll: `J` and `K`
 - Quick jumps to 10%-90% of the chapter: `1` through `9`
-- Resume last read chapter and reading position: `L`
+- Resume latest read chapter and reading position: `L`
+- Repair latest reads when a work slug or URL changes
 - Restore saved position in the current chapter: `R`
 - Zen mode: `Z` (persistent)
 - Auto-scroll and auto-next at the end of the chapter: `A` (persistent)
 - Pause or resume auto-scroll: `Space`
 - Adjust auto-scroll speed: `+` and `-`
+- Chapter map overlay: `C`
 - Contextual help: `?` or `H`
-- Fast visual mapping: `U`
+- Fast visual site mapping: `U`
+- JSON backup/import, latest-read export, English/Spanish UI, and optional Chrome Sync for mappings/settings
 
 ## Extension Interface
 
-- `popup.html`: Quick control over the last compatible tab opened in the current window.
-- `options.html`: Advanced mapping editor with multiple mappings per domain, enable / disable custom sites, host aliases, supported path prefixes, manual CSS selector editing, editable `readingPrefix` and fallback links, JSON import/export, last-read export by work, visual selector support, automatic content script reinjection, and a button to resume the last read chapter from the popup.
+- `popup.html`: Quick controls for the last compatible tab, continue-reading list, latest-read repair, resume, zen mode, auto-scroll, and help.
+- `options.html`: Advanced mapping editor with multiple mappings per domain, site activation, host aliases, supported path prefixes, shortcut overrides, reading mode settings, JSON backup/import, latest-read export, optional sync, and visual picker support.
 
 ## Natively Supported Sites
 
@@ -39,13 +42,13 @@ Spanish version: [README.ES.md](./README.ES.md)
 Recommended method:
 
 1. Open the extension `Options` page.
-2. Click `Picker in another tab`.
+2. Click `Picker in tab`.
 3. Go to the website you want to map and select the corresponding buttons.
 4. Enable the mapping once you are done.
 
-On unrecognized sites, hotkeys remain disabled until you manually activate a custom mapping.
+On unrecognized sites, shortcuts stay disabled until you manually activate a custom mapping.
 
-Mappings are stored in `chrome.storage.local`.
+Mappings and reading progress are stored in `chrome.storage.local` by default. Optional sync can copy mappings and settings to Chrome Sync.
 
 ## Local Development
 
@@ -81,7 +84,7 @@ bunx playwright install chromium
 bun run test:e2e
 ```
 
-The tests validate the full workflow: visual mapping, site activation, chapter navigation, last-read resume, zen mode, and manual editing.
+The tests validate the full workflow: visual mapping, site activation, chapter navigation, latest-read resume, URL repair, auto-scroll speed persistence, sync, backups, zen mode, and manual editing.
 
 ## Project Structure
 
@@ -89,12 +92,12 @@ The tests validate the full workflow: visual mapping, site activation, chapter n
 - `src/content/app.ts`: Main content script logic
 - `src/options/`: Options UI built with Preact
 - `src/popup/`: Popup UI built with Preact
-- `src/shared/`: Shared types, storage, messaging, and utilities
+- `src/shared/`: Shared types, storage, messaging, i18n, resume, and utility modules
 
 ## Before Publishing
 
 1. Check `manifest.json`: name, description, and version.
-2. Keep `"<all_urls>"` in `content_scripts` only if shortcuts must work before opening the popup. The extension no longer keeps `host_permissions`; manual injection uses `activeTab` + `scripting`.
+2. Keep `"<all_urls>"` in `content_scripts` only if shortcuts must work before opening the popup. The extension no longer keeps broad `host_permissions`; manual injection uses `activeTab` + `scripting`.
 3. Add screenshots of the popup and options page.
 
 ## License

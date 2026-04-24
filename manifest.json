@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Reader Hotkeys Mapper",
+  "name": "ChapterPilot",
   "version": "2.0.0",
-  "description": "Keyboard navigation, focus mode and local site customization for manga readers.",
+  "description": "Chapter navigation, reading progress, URL repair, site mapping and focus tools for manga and web readers.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -10,7 +10,7 @@
     "tabs"
   ],
   "action": {
-    "default_title": "Reader Hotkeys",
+    "default_title": "ChapterPilot",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",

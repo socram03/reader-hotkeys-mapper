@@ -1,10 +1,10 @@
 {
-  "name": "reader-hotkeys-mapper",
+  "name": "chapter-pilot",
   "version": "2.0.0",
   "private": true,
   "license": "MIT",
   "packageManager": "bun@1.3.12",
-  "description": "Browser extension for keyboard-first manga reading, local site mapping and chapter navigation.",
+  "description": "Browser extension for chapter navigation, reading progress, URL repair, site mapping and focused manga reading.",
   "scripts": {
     "build": "bun build src/entries/background.ts --outfile background.js --target browser --format iife && bun build src/entries/content.ts --outfile content.js --target browser --format iife && bun build src/entries/options.ts --outfile options.js --target browser --format iife && bun build src/entries/popup.ts --outfile popup.js --target browser --format iife",
     "typecheck": "tsc --noEmit",

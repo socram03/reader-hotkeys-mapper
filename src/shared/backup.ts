@@ -68,7 +68,7 @@ export function isFullBackup(rawBackup: unknown): rawBackup is FullBackup {
 
 export function buildFullBackupFilename(date = new Date()): string {
 	const timestamp = date.toISOString().replace(/[:.]/g, '-');
-	return `reader-hotkeys-backup-${timestamp}.json`;
+	return `chapterpilot-backup-${timestamp}.json`;
 }
 
 function normalizeRecord(value: unknown): RawRecord {

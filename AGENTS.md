@@ -4,7 +4,7 @@ Guidance for agents working in this repository.
 
 ## Project
 
-Reader Hotkeys Mapper is a Manifest V3 browser extension for keyboard-first manga/manhwa reading.
+ChapterPilot is a Manifest V3 browser extension for manga/manhwa chapter navigation, reading progress recovery, site mapping, and focused reading controls.
 
 - Runtime: TypeScript bundled with Bun.
 - UI: Preact for `popup.html` and `options.html`.

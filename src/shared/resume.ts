@@ -15,7 +15,7 @@ export async function loadLatestReadExport(): Promise<LatestReadExport> {
 
 export function buildLatestReadsFilename(date = new Date()): string {
 	const timestamp = date.toISOString().replace(/[:.]/g, '-');
-	return `reader-hotkeys-latest-reads-${timestamp}.json`;
+	return `chapterpilot-latest-reads-${timestamp}.json`;
 }
 
 export function buildLatestReadExport(entries: ResumeEntry[]): LatestReadExport {

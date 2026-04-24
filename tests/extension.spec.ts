@@ -5,7 +5,7 @@ import { chromium, expect, test, type BrowserContext, type Page } from '@playwri
 
 const EXTENSION_PATH = path.resolve(__dirname, '..');
 
-test.describe.serial('Reader Hotkeys extension', () => {
+test.describe.serial('ChapterPilot extension', () => {
 	let context: BrowserContext;
 	let extensionId = '';
 	let userDataDir = '';
@@ -44,9 +44,15 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await i18nOptionsPage.selectOption('#language-select', 'en');
 		await i18nOptionsPage.click('#save-language');
 		await expect(i18nOptionsPage.locator('h1')).toContainText('Options and mappings');
+		await expect(i18nOptionsPage.locator('.eyebrow')).toContainText('ChapterPilot');
+		await expect(i18nOptionsPage.locator('.hero-desc')).toContainText('Keep chapter reading flowing');
+		const manifest = await i18nOptionsPage.evaluate(() => chrome.runtime.getManifest());
+		expect(manifest.name).toBe('ChapterPilot');
+		expect(manifest.description.toLowerCase()).toContain('chapter navigation');
 
 		const englishPopup = await context.newPage();
 		await englishPopup.goto(`chrome-extension://${extensionId}/popup.html`);
+		await expect(englishPopup.locator('.eyebrow')).toContainText('ChapterPilot');
 		await expect(englishPopup.locator('#start-mapper')).toContainText('Map reader');
 		await englishPopup.close();
 

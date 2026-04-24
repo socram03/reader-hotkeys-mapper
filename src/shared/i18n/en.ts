@@ -1,5 +1,5 @@
 export const EN_MESSAGES = {
-	'app.name': 'Reader Hotkeys',
+	'app.name': 'ChapterPilot',
 	'common.active': 'Active',
 	'common.inactive': 'Inactive',
 	'common.supported': 'Supported',
@@ -18,7 +18,7 @@ export const EN_MESSAGES = {
 	'common.next': 'Next',
 	'common.prev': 'Previous',
 	'options.title': 'Options and mappings',
-	'options.description': 'Manage domains, reading prefixes, migration aliases, and CSS selectors. Custom sites stay inactive until you enable them.',
+	'options.description': 'Keep chapter reading flowing with navigation shortcuts, progress recovery, URL repair, site mappings, backups, sync, and reading controls.',
 	'options.pickerTab': 'Picker in tab',
 	'options.newMapping': '+ New mapping',
 	'options.exportMappings': 'Export',

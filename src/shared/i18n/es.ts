@@ -3,7 +3,7 @@ import type { EN_MESSAGES } from './en';
 type MessageKey = keyof typeof EN_MESSAGES;
 
 export const ES_MESSAGES: Record<MessageKey, string> = {
-	'app.name': 'Reader Hotkeys',
+	'app.name': 'ChapterPilot',
 	'common.active': 'Activo',
 	'common.inactive': 'Inactivo',
 	'common.supported': 'Soportado',
@@ -22,7 +22,7 @@ export const ES_MESSAGES: Record<MessageKey, string> = {
 	'common.next': 'Siguiente',
 	'common.prev': 'Anterior',
 	'options.title': 'Opciones y mapeos',
-	'options.description': 'Gestiona dominios, prefijos de lectura, alias de migracion y selectores CSS. Los sitios personalizados quedan inactivos hasta que los actives.',
+	'options.description': 'Mantiene tu lectura de capitulos fluida con atajos de navegacion, recuperacion de progreso, reparacion de URLs, mapeos de sitios, backups, sync y controles de lectura.',
 	'options.pickerTab': 'Picker en pestana',
 	'options.newMapping': '+ Nuevo mapeo',
 	'options.exportMappings': 'Exportar',
