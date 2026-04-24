@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ChapterPilot",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Chapter navigation, reading progress, URL repair, site mapping and focus tools for manga and web readers.",
   "permissions": [
     "activeTab",
