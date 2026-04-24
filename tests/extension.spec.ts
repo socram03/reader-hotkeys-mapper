@@ -400,6 +400,32 @@ test.describe.serial('ChapterPilot extension', () => {
 		await optionsPage.click('#save-settings');
 		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 
+		const cleanupContinuePage = await context.newPage();
+		await cleanupContinuePage.goto(`chrome-extension://${extensionId}/continue.html`);
+		await expect(cleanupContinuePage.locator('#continue-reading-list .continue-card')).toHaveCount(1);
+
+		cleanupContinuePage.once('dialog', dialog => dialog.dismiss());
+		await cleanupContinuePage.click('[data-remove-continue-reading-work]');
+		await expect(cleanupContinuePage.locator('#continue-reading-list .continue-card')).toHaveCount(1);
+
+		cleanupContinuePage.once('dialog', dialog => dialog.accept());
+		await cleanupContinuePage.click('[data-remove-continue-reading-work]');
+		await expect(cleanupContinuePage.locator('.message.ok')).toContainText('Lectura retirada');
+		await expect(cleanupContinuePage.locator('#continue-reading-list .continue-card')).toHaveCount(0);
+
+		await cleanupContinuePage.evaluate(async resume => {
+			await chrome.storage.local.set({ readerHotkeysResume: resume });
+		}, exportedBackup.resume);
+		await cleanupContinuePage.click('#refresh-continue-reading');
+		await expect(cleanupContinuePage.locator('#continue-reading-list .continue-card')).toHaveCount(1);
+
+		cleanupContinuePage.once('dialog', dialog => dialog.accept());
+		await cleanupContinuePage.click('#wipe-continue-reading');
+		await expect(cleanupContinuePage.locator('.message.ok')).toContainText('Historial de lectura borrado');
+		await expect(cleanupContinuePage.locator('#continue-reading-list .continue-card')).toHaveCount(0);
+		await expect(cleanupContinuePage.locator('.continue-stats')).toContainText('0 obra(s)');
+		await cleanupContinuePage.close();
+
 		await optionsPage.close();
 	});
 

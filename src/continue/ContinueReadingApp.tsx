@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import {
 	ensureReaderScript,
+	clearLatestReads,
 	getBestTargetTab,
 	getMessage,
 	loadLanguage,
 	loadLatestReadExport,
 	loadPrivacySettings,
+	removeLatestReadWork,
 	sendReaderMessage
 } from '../shared';
 import type { Language, LatestReadExportEntry, ReaderStatus } from '../shared';
@@ -66,6 +68,35 @@ export function ContinueReadingApp() {
 	async function refreshEntries() {
 		const latestReads = await loadLatestReadExport();
 		setEntries(latestReads.entries);
+	}
+
+	async function removeEntry(entry: LatestReadExportEntry) {
+		if (!confirm(t('continue.removeConfirm', { title: streamerMode ? t('privacy.hiddenReading') : getEntryTitle(entry) }))) return;
+
+		try {
+			const latestReads = await removeLatestReadWork(entry.workId);
+			setEntries(latestReads.entries);
+			setNotice(t('continue.removed'));
+			setError('');
+		} catch (nextError) {
+			setNotice('');
+			setError(t('continue.removeError', { error: getErrorMessage(nextError) }));
+		}
+	}
+
+	async function wipeEntries() {
+		if (!entries.length) return;
+		if (!confirm(t('continue.wipeConfirm'))) return;
+
+		try {
+			const latestReads = await clearLatestReads();
+			setEntries(latestReads.entries);
+			setNotice(t('continue.wiped'));
+			setError('');
+		} catch (nextError) {
+			setNotice('');
+			setError(t('continue.wipeError', { error: getErrorMessage(nextError) }));
+		}
 	}
 
 	async function openEntry(entry: LatestReadExportEntry) {
@@ -141,8 +172,17 @@ export function ContinueReadingApp() {
 						onInput={event => setQuery(event.currentTarget.value)}
 					/>
 				</label>
-				<button type="button" class="ghost" onClick={() => void refreshEntries()}>
+				<button id="refresh-continue-reading" type="button" class="ghost" onClick={() => void refreshEntries()}>
 					{t('continue.refresh')}
+				</button>
+				<button
+					id="wipe-continue-reading"
+					type="button"
+					class="danger"
+					disabled={!entries.length}
+					onClick={() => void wipeEntries()}
+				>
+					{t('continue.wipe')}
 				</button>
 			</section>
 
@@ -183,6 +223,14 @@ export function ContinueReadingApp() {
 								onClick={() => void repairEntry(entry)}
 							>
 								{t('popup.repairHere')}
+							</button>
+							<button
+								type="button"
+								class="danger"
+								data-remove-continue-reading-work={entry.workId}
+								onClick={() => void removeEntry(entry)}
+							>
+								{t('continue.remove')}
 							</button>
 						</div>
 					</article>

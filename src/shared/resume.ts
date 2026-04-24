@@ -13,6 +13,18 @@ export async function loadLatestReadExport(): Promise<LatestReadExport> {
 	return buildLatestReadExport(await loadResumeEntries());
 }
 
+export async function removeLatestReadWork(workId: string): Promise<LatestReadExport> {
+	const entries = await loadResumeEntries();
+	const retainedEntries = entries.filter(entry => getResumeWorkId(entry) !== workId);
+	await extensionStorage.set({ [STORAGE_KEYS.resume]: resumeEntriesToStorageRecord(retainedEntries) });
+	return buildLatestReadExport(retainedEntries);
+}
+
+export async function clearLatestReads(): Promise<LatestReadExport> {
+	await extensionStorage.set({ [STORAGE_KEYS.resume]: {} });
+	return buildLatestReadExport([]);
+}
+
 export function buildLatestReadsFilename(date = new Date()): string {
 	const timestamp = date.toISOString().replace(/[:.]/g, '-');
 	return `chapterpilot-latest-reads-${timestamp}.json`;
@@ -101,6 +113,13 @@ function normalizeResumeEntries(rawResumeState: unknown): ResumeEntry[] {
 		.map(([storageKey, entry]) => normalizeResumeEntry(storageKey, entry))
 		.filter((entry): entry is ResumeEntry => Boolean(entry))
 		.sort((left, right) => right.updatedAt - left.updatedAt);
+}
+
+function resumeEntriesToStorageRecord(entries: ResumeEntry[]): Record<string, ResumeEntry> {
+	return entries.reduce<Record<string, ResumeEntry>>((record, entry) => {
+		record[entry.storageKey || entry.chapterHref] = entry;
+		return record;
+	}, {});
 }
 
 function normalizeResumeEntry(storageKey: string, value: unknown): ResumeEntry | null {

@@ -173,6 +173,17 @@ h1 {
   color: var(--accent);
 }
 
+.danger {
+  background: var(--danger-dim);
+  border-color: rgba(248, 113, 113, 0.28);
+  color: var(--danger);
+}
+
+.danger:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.48);
+  background: rgba(248, 113, 113, 0.18);
+}
+
 .message {
   padding: 10px 12px;
   font-size: 12px;
