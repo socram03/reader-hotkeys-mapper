@@ -33,8 +33,6 @@ import {
 	normalizeUserMappings,
 	removeMappingEntry,
 	saveUserMappings,
-	saveLanguage,
-	savePrivacySettings,
 	sendReaderMessage,
 	SHORTCUT_ACTIONS,
 	STORAGE_KEYS,
@@ -66,6 +64,7 @@ export function OptionsApp() {
 	const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({ streamerMode: false });
 	const [storageMode, setStorageModeState] = useState<StorageMode>('local');
 	const [language, setLanguage] = useState<Language>('es');
+	const [savedSettingsSnapshot, setSavedSettingsSnapshot] = useState('');
 	const [resumeSummary, setResumeSummary] = useState({ totalWorks: 0, totalEntries: 0 });
 	const [message, setMessageState] = useState<{ text: string; error: boolean }>({ text: '', error: false });
 	const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -100,6 +99,18 @@ export function OptionsApp() {
 		});
 	}, [mappingState]);
 
+	const currentSettingsSnapshot = useMemo(() => {
+		return createSettingsSnapshot({
+			language,
+			shortcuts: shortcutSettings,
+			readerMode: readerModeSettings,
+			privacy: privacySettings,
+			storageMode
+		});
+	}, [language, shortcutSettings, readerModeSettings, privacySettings, storageMode]);
+
+	const hasUnsavedSettings = Boolean(savedSettingsSnapshot) && currentSettingsSnapshot !== savedSettingsSnapshot;
+
 	async function initialize() {
 		try {
 			const [nextMappingState, latestReads, nextShortcutSettings, nextReaderModeSettings, nextPrivacySettings, nextStorageMode, nextLanguage] = await Promise.all([
@@ -118,6 +129,13 @@ export function OptionsApp() {
 			setPrivacySettings(nextPrivacySettings);
 			setStorageModeState(nextStorageMode);
 			setLanguage(nextLanguage);
+			setSavedSettingsSnapshot(createSettingsSnapshot({
+				language: nextLanguage,
+				shortcuts: nextShortcutSettings,
+				readerMode: nextReaderModeSettings,
+				privacy: nextPrivacySettings,
+				storageMode: nextStorageMode
+			}));
 			setResumeSummary({
 				totalWorks: latestReads.totalWorks,
 				totalEntries: latestReads.totalEntries
@@ -164,12 +182,15 @@ export function OptionsApp() {
 		}));
 	}
 
-	async function saveShortcuts() {
+	async function saveSettings() {
 		try {
-			const normalized = normalizeShortcutSettings(shortcutSettings);
+			const normalizedShortcuts = normalizeShortcutSettings(shortcutSettings);
+			const normalizedReaderMode = normalizeReaderModeSettings(readerModeSettings);
+			const normalizedPrivacy = { streamerMode: Boolean(privacySettings.streamerMode) };
+			const normalizedStorageMode: StorageMode = storageMode === 'sync' ? 'sync' : 'local';
 			const usedShortcuts = new Map<string, string>();
 			for (const action of SHORTCUT_ACTIONS) {
-				const key = normalized[action];
+				const key = normalizedShortcuts[action];
 				if (usedShortcuts.has(key)) {
 					throw new Error(t('options.shortcutDuplicate', {
 						key: formatShortcutKey(key),
@@ -180,6 +201,11 @@ export function OptionsApp() {
 				usedShortcuts.set(key, getShortcutLabel(language, action));
 			}
 
+			const savedStorageMode = getStorageModeFromSnapshot(savedSettingsSnapshot);
+			if (savedStorageMode && normalizedStorageMode !== savedStorageMode) {
+				await copySyncableStorageTo(normalizedStorageMode);
+			}
+
 			const data = await extensionStorage.get([STORAGE_KEYS.settings]);
 			const settings: Record<string, unknown> = isRecord(data[STORAGE_KEYS.settings])
 				? Object.assign({}, data[STORAGE_KEYS.settings])
@@ -187,62 +213,25 @@ export function OptionsApp() {
 			const globalSettings: Record<string, unknown> = isRecord(settings[GLOBAL_SETTINGS_KEY]) ? { ...settings[GLOBAL_SETTINGS_KEY] } : {};
 			settings[GLOBAL_SETTINGS_KEY] = {
 				...globalSettings,
-				shortcuts: normalized
+				language,
+				shortcuts: normalizedShortcuts,
+				readerMode: normalizedReaderMode,
+				streamerMode: normalizedPrivacy.streamerMode
 			};
 
 			await extensionStorage.set({ [STORAGE_KEYS.settings]: settings });
-			setShortcutSettings(normalized);
-			setMessage(t('options.shortcutSaved'));
-		} catch (error) {
-			setMessage(getErrorMessage(error), true);
-		}
-	}
-
-	async function saveReaderMode() {
-		try {
-			const normalized = normalizeReaderModeSettings(readerModeSettings);
-			const data = await extensionStorage.get([STORAGE_KEYS.settings]);
-			const settings: Record<string, unknown> = isRecord(data[STORAGE_KEYS.settings])
-				? Object.assign({}, data[STORAGE_KEYS.settings])
-				: {};
-			const globalSettings: Record<string, unknown> = isRecord(settings[GLOBAL_SETTINGS_KEY]) ? { ...settings[GLOBAL_SETTINGS_KEY] } : {};
-			settings[GLOBAL_SETTINGS_KEY] = {
-				...globalSettings,
-				readerMode: normalized
-			};
-
-			await extensionStorage.set({ [STORAGE_KEYS.settings]: settings });
-			setReaderModeSettings(normalized);
-			setMessage(t('options.readingModeSaved'));
-		} catch (error) {
-			setMessage(getErrorMessage(error), true);
-		}
-	}
-
-	async function savePrivacy() {
-		try {
-			await savePrivacySettings(privacySettings);
-			setMessage(t('privacy.saved'));
-		} catch (error) {
-			setMessage(getErrorMessage(error), true);
-		}
-	}
-
-	async function saveStorageSync() {
-		try {
-			const nextMode: StorageMode = storageMode === 'sync' ? 'sync' : 'local';
-			await copySyncableStorageTo(nextMode);
-			setStorageModeState(nextMode);
-			setMessage(nextMode === 'sync' ? t('options.syncEnabled') : t('options.syncDisabled'));
-		} catch (error) {
-			setMessage(t('options.syncError', { error: getErrorMessage(error) }), true);
-		}
-	}
-
-	async function saveSelectedLanguage() {
-		try {
-			await saveLanguage(language);
-			setMessage(t('language.saved'));
+			setShortcutSettings(normalizedShortcuts);
+			setReaderModeSettings(normalizedReaderMode);
+			setPrivacySettings(normalizedPrivacy);
+			setStorageModeState(normalizedStorageMode);
+			setSavedSettingsSnapshot(createSettingsSnapshot({
+				language,
+				shortcuts: normalizedShortcuts,
+				readerMode: normalizedReaderMode,
+				privacy: normalizedPrivacy,
+				storageMode: normalizedStorageMode
+			}));
+			setMessage(t('settings.saved'));
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
@@ -537,6 +526,15 @@ async function migrateFromTargetTab(mappingId: string) {
 				</section>
 			)}
 
+			{hasUnsavedSettings ? (
+				<div class="settings-save-bar">
+					<span>{t('settings.unsaved')}</span>
+					<button id="save-settings" type="button" class="primary" onClick={() => void saveSettings()}>
+						{t('settings.saveAll')}
+					</button>
+				</div>
+			) : null}
+
 			{validationResult ? (
 				<div class="modal-backdrop" data-validation-modal="true" onClick={() => setValidationResult(null)}>
 					<section class="validation-modal" role="dialog" aria-modal="true" aria-labelledby="validation-modal-title" onClick={event => event.stopPropagation()}>
@@ -576,9 +574,6 @@ async function migrateFromTargetTab(mappingId: string) {
 					<div>
 						<h2>{getMessage(language, 'language.title')}</h2>
 					</div>
-					<button id="save-language" type="button" class="primary" onClick={() => void saveSelectedLanguage()}>
-						{getMessage(language, 'language.save')}
-					</button>
 				</div>
 				<label class="shortcut-field">
 					<span class="field-label">{getMessage(language, 'language.label')}</span>
@@ -598,9 +593,6 @@ async function migrateFromTargetTab(mappingId: string) {
 					<div>
 						<h2>{t('shortcuts.title')}</h2>
 					</div>
-					<button id="save-shortcuts" type="button" class="primary" onClick={() => void saveShortcuts()}>
-						{t('shortcuts.save')}
-					</button>
 				</div>
 				<div class="shortcut-settings-grid">
 					{SHORTCUT_ACTIONS.map(action => (
@@ -623,9 +615,6 @@ async function migrateFromTargetTab(mappingId: string) {
 					<div>
 						<h2>{t('readingMode.title')}</h2>
 					</div>
-					<button id="save-reading-mode" type="button" class="primary" onClick={() => void saveReaderMode()}>
-						{t('readingMode.save')}
-					</button>
 				</div>
 				<div class="shortcut-settings-grid">
 					<label class="shortcut-field">
@@ -672,9 +661,6 @@ async function migrateFromTargetTab(mappingId: string) {
 					<div>
 						<h2>{t('privacy.title')}</h2>
 					</div>
-					<button id="save-privacy" type="button" class="primary" onClick={() => void savePrivacy()}>
-						{t('privacy.save')}
-					</button>
 				</div>
 				<label class="toggle-row">
 					<span class="field-label">{t('privacy.streamerMode')}</span>
@@ -694,9 +680,6 @@ async function migrateFromTargetTab(mappingId: string) {
 					<div>
 						<h2>{t('sync.title')}</h2>
 					</div>
-					<button id="save-storage-sync" type="button" class="primary" onClick={() => void saveStorageSync()}>
-						{t('sync.save')}
-					</button>
 				</div>
 				<label class="toggle-row">
 					<span class="field-label">{t('sync.label')}</span>
@@ -847,6 +830,33 @@ function getErrorMessage(error: unknown) {
 function getShortcutLabel(language: Language, action: ShortcutAction) {
 	const key = `shortcuts.${action}` as Parameters<typeof getMessage>[1];
 	return getMessage(language, key);
+}
+
+function createSettingsSnapshot(settings: {
+	language: Language;
+	shortcuts: ShortcutSettings;
+	readerMode: ReaderModeSettings;
+	privacy: PrivacySettings;
+	storageMode: StorageMode;
+}): string {
+	return JSON.stringify({
+		language: settings.language,
+		shortcuts: normalizeShortcutSettings(settings.shortcuts),
+		readerMode: normalizeReaderModeSettings(settings.readerMode),
+		privacy: {
+			streamerMode: Boolean(settings.privacy.streamerMode)
+		},
+		storageMode: settings.storageMode === 'sync' ? 'sync' : 'local'
+	});
+}
+
+function getStorageModeFromSnapshot(snapshot: string): StorageMode | null {
+	try {
+		const parsed = JSON.parse(snapshot) as { storageMode?: unknown };
+		return parsed.storageMode === 'sync' || parsed.storageMode === 'local' ? parsed.storageMode : null;
+	} catch {
+		return null;
+	}
 }
 
 async function loadGlobalShortcutSettings(): Promise<ShortcutSettings> {

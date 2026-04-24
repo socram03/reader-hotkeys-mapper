@@ -41,8 +41,17 @@ test.describe.serial('ChapterPilot extension', () => {
 
 		const i18nOptionsPage = await context.newPage();
 		await i18nOptionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+		await expect(i18nOptionsPage.locator('#save-settings')).toHaveCount(0);
+		await expect(i18nOptionsPage.locator('#save-language')).toHaveCount(0);
+		await expect(i18nOptionsPage.locator('#save-shortcuts')).toHaveCount(0);
+		await expect(i18nOptionsPage.locator('#save-reading-mode')).toHaveCount(0);
+		await expect(i18nOptionsPage.locator('#save-privacy')).toHaveCount(0);
+		await expect(i18nOptionsPage.locator('#save-storage-sync')).toHaveCount(0);
 		await i18nOptionsPage.selectOption('#language-select', 'en');
-		await i18nOptionsPage.click('#save-language');
+		await expect(i18nOptionsPage.locator('#save-settings')).toBeVisible();
+		await expect(i18nOptionsPage.locator('.settings-save-bar')).toHaveCSS('position', 'fixed');
+		await i18nOptionsPage.click('#save-settings');
+		await expect(i18nOptionsPage.locator('#save-settings')).toHaveCount(0);
 		await expect(i18nOptionsPage.locator('h1')).toContainText('Options and mappings');
 		await expect(i18nOptionsPage.locator('.eyebrow')).toContainText('ChapterPilot');
 		await expect(i18nOptionsPage.locator('.hero-desc')).toContainText('Keep chapter reading flowing');
@@ -64,7 +73,7 @@ test.describe.serial('ChapterPilot extension', () => {
 		await englishPopup.close();
 
 		await i18nOptionsPage.selectOption('#language-select', 'es');
-		await i18nOptionsPage.click('#save-language');
+		await i18nOptionsPage.click('#save-settings');
 		await expect(i18nOptionsPage.locator('h1')).toContainText('Opciones y mapeos');
 		await i18nOptionsPage.close();
 
@@ -102,7 +111,7 @@ test.describe.serial('ChapterPilot extension', () => {
 
 		await optionsPage.bringToFront();
 		await optionsPage.selectOption('#language-select', 'en');
-		await optionsPage.click('#save-language');
+		await optionsPage.click('#save-settings');
 		await expect(optionsPage.locator('h1')).toContainText('Options and mappings');
 		await readerPage.reload();
 		await waitForExtensionReady(readerPage);
@@ -113,7 +122,7 @@ test.describe.serial('ChapterPilot extension', () => {
 
 		await optionsPage.bringToFront();
 		await optionsPage.selectOption('#language-select', 'es');
-		await optionsPage.click('#save-language');
+		await optionsPage.click('#save-settings');
 		await expect(optionsPage.locator('h1')).toContainText('Opciones y mapeos');
 		await readerPage.reload();
 		await waitForExtensionReady(readerPage);
@@ -258,8 +267,8 @@ test.describe.serial('ChapterPilot extension', () => {
 		await expect(optionsPage.locator('.notice')).toContainText('Backup importado');
 
 		await optionsPage.click('#streamer-mode-enabled');
-		await optionsPage.click('#save-privacy');
-		await expect(optionsPage.locator('.notice')).toContainText('Privacidad guardada');
+		await optionsPage.click('#save-settings');
+		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 		const privateMappingCard = optionsPage.locator('.mapping-card').first();
 		await expect(privateMappingCard).toContainText('Sitio oculto');
 		await expect(privateMappingCard).not.toContainText('Custom Local');
@@ -289,8 +298,8 @@ test.describe.serial('ChapterPilot extension', () => {
 		await privatePopup.close();
 
 		await optionsPage.click('#streamer-mode-enabled');
-		await optionsPage.click('#save-privacy');
-		await expect(optionsPage.locator('.notice')).toContainText('Privacidad guardada');
+		await optionsPage.click('#save-settings');
+		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 
 		await readerPage.bringToFront();
 		await optionsPage.bringToFront();
@@ -313,8 +322,10 @@ test.describe.serial('ChapterPilot extension', () => {
 		await optionsPage.click('[data-shortcut-action="next"]');
 		await optionsPage.keyboard.press('Control+ArrowRight');
 		await expect(optionsPage.locator('[data-shortcut-action="next"]')).toHaveValue('Ctrl+ArrowRight');
-		await optionsPage.click('#save-shortcuts');
-		await expect(optionsPage.locator('.notice')).toContainText('Atajos guardados');
+		await optionsPage.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' }));
+		await expect(optionsPage.locator('#save-settings')).toBeVisible();
+		await optionsPage.click('#save-settings');
+		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 
 		await readerPage.goto(`${baseURL}/custom/reader-1.html`);
 		await ensureReaderInActiveTab(optionsPage, readerPage);
@@ -328,8 +339,8 @@ test.describe.serial('ChapterPilot extension', () => {
 		await optionsPage.click('[data-shortcut-action="next"]');
 		await optionsPage.keyboard.press('ArrowRight');
 		await expect(optionsPage.locator('[data-shortcut-action="next"]')).toHaveValue('ArrowRight');
-		await optionsPage.click('#save-shortcuts');
-		await expect(optionsPage.locator('.notice')).toContainText('Atajos guardados');
+		await optionsPage.click('#save-settings');
+		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 
 		await optionsPage.click('[data-domain-shortcut-action="next"]');
 		await optionsPage.keyboard.press('Alt+X');
@@ -356,8 +367,8 @@ test.describe.serial('ChapterPilot extension', () => {
 
 		await optionsPage.fill('[data-reading-setting="backgroundColor"]', '#101010');
 		await optionsPage.fill('[data-reading-setting="maxWidth"]', '720');
-		await optionsPage.click('#save-reading-mode');
-		await expect(optionsPage.locator('.notice')).toContainText('Modo lectura guardado');
+		await optionsPage.click('#save-settings');
+		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 
 		await readerPage.goto(`${baseURL}/custom/reader-1.html`);
 		await ensureReaderInActiveTab(optionsPage, readerPage);
@@ -370,12 +381,12 @@ test.describe.serial('ChapterPilot extension', () => {
 		await optionsPage.bringToFront();
 		await optionsPage.fill('[data-reading-setting="backgroundColor"]', '#000000');
 		await optionsPage.fill('[data-reading-setting="maxWidth"]', '0');
-		await optionsPage.click('#save-reading-mode');
-		await expect(optionsPage.locator('.notice')).toContainText('Modo lectura guardado');
+		await optionsPage.click('#save-settings');
+		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 
 		await optionsPage.check('#sync-storage-enabled');
-		await optionsPage.click('#save-storage-sync');
-		await expect(optionsPage.locator('.notice')).toContainText('Sync activado');
+		await optionsPage.click('#save-settings');
+		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 		const syncedData = await optionsPage.evaluate(async () => {
 			return chrome.storage.sync.get(['readerHotkeysSettings', 'readerHotkeysUserMappings']);
 		}) as {
@@ -386,8 +397,8 @@ test.describe.serial('ChapterPilot extension', () => {
 		expect(syncedData.readerHotkeysSettings._global).toBeTruthy();
 
 		await optionsPage.uncheck('#sync-storage-enabled');
-		await optionsPage.click('#save-storage-sync');
-		await expect(optionsPage.locator('.notice')).toContainText('Sync desactivado');
+		await optionsPage.click('#save-settings');
+		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 
 		await optionsPage.close();
 	});
