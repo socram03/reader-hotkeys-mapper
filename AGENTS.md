@@ -48,6 +48,7 @@ Prefer running `bun run typecheck`, `bun run build`, and `bun run test:e2e` afte
 
 - Add or update Playwright fixtures when changing mapper, navigation, resume, popup, or options behavior.
 - For new route heuristics, add fixture pages that model the real URL shape.
+- Keep fixture names, labels, and test assertions generic. Do not name tests or fixtures after a real manga site unless testing a built-in site integration explicitly requires that brand.
 - E2E launches a persistent Chromium context and loads the root folder as the extension.
 
 ## Style

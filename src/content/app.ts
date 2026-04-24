@@ -20,7 +20,6 @@ import {
 const STORAGE_KEYS = {
 	settings: 'readerHotkeysSettings',
 	resume: 'readerHotkeysResume',
-	chapterCache: 'readerHotkeysChapterCache',
 	userMappings: 'readerHotkeysUserMappings',
 	storageMode: 'readerHotkeysStorageMode'
 };
@@ -36,7 +35,6 @@ const FOCUS_CLASS = 'reader-hotkeys-focus';
 const RESUME_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
 const RESUME_MAX_ENTRIES = 200;
 const AUTO_NEXT_DELAY_MS = 3000;
-const CHAPTER_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 6;
 const AUTO_SCROLL_PX_PER_SECOND = 120;
 const AUTO_SCROLL_INTERVAL_MS = 16;
 const LOCATION_SYNC_INTERVAL_MS = 250;
@@ -155,7 +153,6 @@ const runtime = {
 	persisted: {
 		settings: {},
 		resume: {},
-		chapterCache: {},
 		userMappings: {}
 	},
 	settings: {
@@ -488,10 +485,9 @@ function setRuntimeSite(nextSite) {
 }
 
 async function loadPersistedState() {
-	const data = await storage.get([STORAGE_KEYS.settings, STORAGE_KEYS.resume, STORAGE_KEYS.chapterCache, STORAGE_KEYS.userMappings]);
+	const data = await storage.get([STORAGE_KEYS.settings, STORAGE_KEYS.resume, STORAGE_KEYS.userMappings]);
 	runtime.persisted.settings = data[STORAGE_KEYS.settings] || {};
 	runtime.persisted.resume = pruneResumeEntries(data[STORAGE_KEYS.resume] || {});
-	runtime.persisted.chapterCache = data[STORAGE_KEYS.chapterCache] || {};
 	runtime.persisted.userMappings = normalizeUserMappings(data[STORAGE_KEYS.userMappings]);
 }
 
@@ -1968,12 +1964,6 @@ function toggleChapterMap() {
 }
 
 function openChapterMap() {
-	const mainHref = getAbsoluteHref(runtime.site.getMainHref?.());
-	if (!mainHref) {
-		showToast(t('content.noMainPage'));
-		return;
-	}
-
 	const overlay = document.createElement('div');
 	overlay.id = CHAPTER_MAP_OVERLAY_ID;
 	overlay.style.position = 'fixed';
@@ -2013,7 +2003,7 @@ function openChapterMap() {
 	const searchInput = overlay.querySelector<HTMLInputElement>('[data-chapter-search="true"]');
 	searchInput?.focus();
 
-	loadChapterMap(mainHref, overlay);
+	loadChapterMap(overlay);
 }
 
 function closeChapterMap() {
@@ -2024,13 +2014,8 @@ function closeChapterMap() {
 	return true;
 }
 
-async function loadChapterMap(mainHref, overlay) {
-	const cached = getCachedChapterMap(mainHref);
-	if (cached.length) {
-		renderChapterResults(overlay, cached);
-	}
-
-	const chapters = cached.length ? cached : await fetchChapterMap(mainHref);
+function loadChapterMap(overlay) {
+	const chapters = buildChapterMapFromHistory();
 	renderChapterResults(overlay, chapters);
 
 	const searchInput = overlay.querySelector('[data-chapter-search="true"]');
@@ -2043,55 +2028,50 @@ async function loadChapterMap(mainHref, overlay) {
 	});
 }
 
-function getCachedChapterMap(mainHref) {
-	const cacheEntry = runtime.persisted.chapterCache[mainHref];
-	if (!cacheEntry) return [];
-	if (Date.now() - cacheEntry.updatedAt > CHAPTER_CACHE_MAX_AGE_MS) return [];
-	return Array.isArray(cacheEntry.chapters) ? cacheEntry.chapters : [];
-}
-
-async function fetchChapterMap(mainHref) {
-	try {
-		const response = await fetch(mainHref, { credentials: 'include' });
-		const html = await response.text();
-		const documentParser = new DOMParser().parseFromString(html, 'text/html');
-		const chapters = extractChapterLinks(documentParser, mainHref);
-
-		runtime.persisted.chapterCache[mainHref] = {
-			updatedAt: Date.now(),
-			chapters
-		};
-
-		storage.set({ [STORAGE_KEYS.chapterCache]: runtime.persisted.chapterCache });
-		return chapters;
-	} catch {
-		showToast(t('content.chapterLoadFailed'));
-		return [];
-	}
-}
-
-function extractChapterLinks(documentParser, mainHref) {
+function buildChapterMapFromHistory() {
 	const seen = new Set();
 	const chapters = [];
 
-	[...documentParser.querySelectorAll('a[href]')].forEach(link => {
-		const absoluteHref = getAbsoluteHrefFromBase(mainHref, link.getAttribute('href'));
-		if (!absoluteHref) return;
+	getMeaningfulResumeEntries()
+		.filter(isCurrentChapterMapScope)
+		.forEach(entry => {
+			const href = getComparableHref(entry.chapterHref);
+			if (!href || seen.has(href)) return;
 
-		const path = getHrefPath(absoluteHref);
-		if (!matchesPath(path, runtime.site.paths)) return;
-		if (seen.has(absoluteHref)) return;
-
-		seen.add(absoluteHref);
-
-		const label = link.textContent?.replace(/\s+/g, ' ').trim() || path.split('/').filter(Boolean).pop() || absoluteHref;
-		chapters.push({
-			href: absoluteHref,
-			label
+			seen.add(href);
+			chapters.push({
+				href,
+				label: String(entry.title || getHrefLastSegment(href) || href).trim(),
+				updatedAt: Number(entry.updatedAt || 0),
+				order: inferResumeChapterOrder(entry)
+			});
 		});
-	});
 
-	return chapters;
+	return chapters.sort((left, right) => {
+		const leftOrder = Number(left.order);
+		const rightOrder = Number(right.order);
+		if (Number.isFinite(leftOrder) && Number.isFinite(rightOrder) && leftOrder !== rightOrder) {
+			return leftOrder - rightOrder;
+		}
+
+		return right.updatedAt - left.updatedAt;
+	});
+}
+
+function isCurrentChapterMapScope(entry) {
+	if (!entry?.chapterHref) return false;
+
+	const currentMainHref = getCurrentMainHref();
+	if (currentMainHref && areComparableHrefsEqual(entry.mainHref, currentMainHref)) return true;
+
+	const currentWorkKey = getCurrentWorkKey();
+	if (!currentWorkKey || normalizeWorkKey(entry.workKey) !== currentWorkKey) return false;
+
+	const currentSiteId = runtime.site?.id || '';
+	const entrySiteId = String(entry.siteId || '');
+	if (currentSiteId && entrySiteId && currentSiteId !== entrySiteId) return false;
+
+	return !entry.host || entry.host === window.location.host;
 }
 
 function renderChapterResults(overlay, chapters) {
@@ -2430,16 +2410,6 @@ function getAbsoluteHref(href) {
 
 	try {
 		return new URL(href, window.location.origin).href;
-	} catch {
-		return '';
-	}
-}
-
-function getAbsoluteHrefFromBase(baseHref, href) {
-	if (!href) return '';
-
-	try {
-		return new URL(href, baseHref || window.location.origin).href;
 	} catch {
 		return '';
 	}

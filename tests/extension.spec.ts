@@ -114,13 +114,19 @@ test.describe.serial('ChapterPilot extension', () => {
 		await waitForExtensionReady(readerPage);
 		await readerPage.keyboard.press('ArrowLeft');
 		await expect(readerPage).toHaveURL(/reader-1\.html$/);
+		await readerPage.evaluate(() => {
+			window.scrollTo({ top: 900, behavior: 'auto' });
+		});
+		await readerPage.waitForTimeout(600);
 
 		await ensureReaderInTab(optionsPage, targetTabId);
 		await readerPage.bringToFront();
 		await waitForExtensionReady(readerPage);
 		await readerPage.keyboard.press('c');
-		await expect(readerPage.locator('[data-chapter-results="true"] [data-chapter-href]')).toHaveCount(3);
-		await expect(readerPage.locator('[data-chapter-results="true"]')).toContainText('Capitulo 1');
+		await expect(readerPage.locator('[data-chapter-results="true"] [data-chapter-href]')).toHaveCount(1);
+		await expect(readerPage.locator('[data-chapter-results="true"]')).toContainText('Custom Reader 1');
+		await expect(readerPage.locator('[data-chapter-results="true"]')).not.toContainText('Capitulo 1');
+		await expect(readerPage.locator('[data-chapter-results="true"]')).not.toContainText('Capitulo 2');
 		await readerPage.keyboard.press('Escape');
 
 		await ensureReaderInTab(optionsPage, targetTabId);
@@ -453,9 +459,9 @@ test.describe.serial('ChapterPilot extension', () => {
 
 	test('infers route-level prefixes for work-scoped reader URLs', async ({ baseURL }) => {
 		const readerPage = await context.newPage();
-		readerPage.on('dialog', dialog => dialog.accept('Manga Crab Local'));
+		readerPage.on('dialog', dialog => dialog.accept('Route Work Local'));
 
-		await readerPage.goto(`${baseURL}/series/manga-crab/chapter-2.html`);
+		await readerPage.goto(`${baseURL}/series/route-work/chapter-2.html`);
 
 		const optionsPage = await context.newPage();
 		await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
@@ -471,10 +477,23 @@ test.describe.serial('ChapterPilot extension', () => {
 		await waitForExtensionReady(readerPage);
 
 		await optionsPage.reload();
-		const mappingCard = optionsPage.locator('.mapping-card').filter({ hasText: 'Manga Crab Local' });
+		const mappingCard = optionsPage.locator('.mapping-card').filter({ hasText: 'Route Work Local' });
 		await expect(mappingCard).toHaveCount(1);
 		await mappingCard.locator('.mapping-card-head').click();
 		await expect(mappingCard.locator('[data-input="readingPrefix"]')).toHaveValue('/series/');
+
+		await readerPage.bringToFront();
+		await waitForExtensionReady(readerPage);
+		await readerPage.evaluate(() => {
+			window.scrollTo({ top: 900, behavior: 'auto' });
+		});
+		await readerPage.waitForTimeout(600);
+		await readerPage.keyboard.press('c');
+		await expect(readerPage.locator('[data-chapter-results="true"] [data-chapter-href]')).toHaveCount(1);
+		await expect(readerPage.locator('[data-chapter-results="true"]')).toContainText('Route Work Chapter 2');
+		await expect(readerPage.locator('[data-chapter-results="true"]')).not.toContainText('Chapter 1');
+		await expect(readerPage.locator('[data-chapter-results="true"]')).not.toContainText('Chapter 3');
+		await readerPage.keyboard.press('Escape');
 
 		await optionsPage.close();
 		await readerPage.close();
