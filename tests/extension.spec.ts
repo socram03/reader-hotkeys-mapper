@@ -468,7 +468,10 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
 		await expect(popupPage.locator('#resume-last-read')).toBeEnabled();
 		await expect(popupPage.locator('.status-card')).toContainText('Rename Survival Chapter 2');
-		await popupPage.click('#resume-last-read');
+		await expect(popupPage.locator('[data-continue-reading-href*="/manga/rename-old/chapter-2.html"]')).toBeVisible();
+		await popupPage.click('[data-repair-continue-reading-href*="/manga/rename-old/chapter-2.html"]');
+		await expect(popupPage.locator('[data-continue-reading-href*="/manga/rename-new/chapter-2.html"]')).toBeVisible();
+		await popupPage.click('[data-continue-reading-href*="/manga/rename-new/chapter-2.html"]');
 		await popupPage.close();
 
 		await expect(readerPage).toHaveURL(/manga\/rename-new\/chapter-2\.html$/);

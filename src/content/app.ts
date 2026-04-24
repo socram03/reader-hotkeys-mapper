@@ -223,6 +223,8 @@ async function handleRuntimeMessage(message) {
 		case 'reader:resume-last-read':
 			await resumeLastRead(true);
 			return getReaderStatus();
+		case 'reader:repair-latest-read':
+			return repairLatestReadEntry(message.entry);
 		case 'reader:open-chapter-map':
 			if (runtime.site) toggleChapterMap();
 			return getReaderStatus();
@@ -1133,6 +1135,48 @@ function getResumeTarget(location) {
 	if (chapterTarget) return chapterTarget;
 
 	return findRenamedWorkResumeTarget([...getMeaningfulWorkResumeEntries(), ...getMeaningfulResumeEntries()]);
+}
+
+async function repairLatestReadEntry(rawEntry) {
+	if (!runtime.site) return { ok: false };
+
+	const entry = latestReadToResumeEntry(rawEntry);
+	if (!entry?.chapterHref) return { ok: false };
+
+	const target = findRenamedWorkResumeTarget([entry]);
+	if (!target?.entry?.chapterHref) return { ok: false };
+
+	const repairedEntry = {
+		...target.entry,
+		storageKey: entry.storageKey || target.entry.storageKey,
+		updatedAt: Date.now()
+	};
+
+	await persistResumeEntry(repairedEntry);
+	return {
+		ok: true,
+		entry: repairedEntry,
+		status: getReaderStatus()
+	};
+}
+
+function latestReadToResumeEntry(value) {
+	if (!value || typeof value !== 'object') return null;
+
+	return {
+		storageKey: String(value.storageKey || '').trim(),
+		entryType: 'work',
+		scrollY: Number(value.scrollY || 0),
+		percent: Math.min(1, Math.max(0, Number(value.progressPercent || 0) / 100)),
+		updatedAt: Number(value.updatedAt || Date.now()),
+		title: String(value.chapterTitle || '').trim(),
+		workTitle: String(value.workTitle || '').trim(),
+		host: String(value.host || '').trim(),
+		siteId: String(value.siteId || runtime.site?.id || '').trim(),
+		mainHref: getComparableHref(value.workHref),
+		workKey: normalizeWorkKey(value.workKey),
+		chapterHref: getComparableHref(value.chapterHref)
+	};
 }
 
 function getMeaningfulResumeEntries() {

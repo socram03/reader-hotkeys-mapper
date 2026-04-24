@@ -17,6 +17,7 @@ export function PopupApp() {
 	const [continueReading, setContinueReading] = useState<LatestReadExportEntry[]>([]);
 	const [language, setLanguage] = useState<Language>('es');
 	const [error, setError] = useState('');
+	const [notice, setNotice] = useState('');
 	const t = (key: Parameters<typeof getMessage>[1], values?: Parameters<typeof getMessage>[2]) => getMessage(language, key, values);
 
 	useEffect(() => {
@@ -55,6 +56,7 @@ export function PopupApp() {
 			const nextStatus = await sendReaderMessage(targetTab.id, { type });
 			setStatus(nextStatus);
 			setError('');
+			setNotice('');
 			if (options?.closeAfter) window.close();
 		} catch (nextError) {
 			setError(t('popup.messageError', { error: getErrorMessage(nextError) }));
@@ -72,6 +74,7 @@ export function PopupApp() {
 			}
 
 			setError('');
+			setNotice('');
 			window.close();
 		} catch (nextError) {
 			setError(t('popup.resumeError', { error: getErrorMessage(nextError) }));
@@ -90,9 +93,33 @@ export function PopupApp() {
 			}
 
 			setError('');
+			setNotice('');
 			window.close();
 		} catch (nextError) {
 			setError(t('popup.resumeError', { error: getErrorMessage(nextError) }));
+		}
+	}
+
+	async function repairContinueReadingEntry(entry: LatestReadExportEntry) {
+		if (!targetTab?.id) return;
+
+		try {
+			const result = await sendReaderMessage<{ ok: boolean; status?: ReaderStatus }>(targetTab.id, {
+				type: 'reader:repair-latest-read',
+				entry
+			});
+
+			if (!result?.ok) {
+				throw new Error(t('popup.repairNoMatch'));
+			}
+
+			if (result.status) setStatus(result.status);
+			await refreshContinueReading();
+			setNotice(t('popup.repairSaved'));
+			setError('');
+		} catch (nextError) {
+			setNotice('');
+			setError(t('popup.repairError', { error: getErrorMessage(nextError) }));
 		}
 	}
 
@@ -176,6 +203,7 @@ export function PopupApp() {
 					</div>
 				</section>
 			)}
+			{notice ? <div class="popup-notice">{notice}</div> : null}
 
 			{/* ── Actions ── */}
 			<section class="actions">
@@ -248,18 +276,28 @@ export function PopupApp() {
 					<div class="continue-reading-title">{t('popup.continueReading')}</div>
 					<div id="continue-reading-list" class="continue-reading-list">
 						{continueReading.map(entry => (
-							<button
-								key={entry.workId}
-								class="continue-reading-item"
-								type="button"
-								data-continue-reading-href={entry.chapterHref}
-								onClick={() => void runContinueReadingAction(entry)}
-							>
-								<span class="continue-reading-main">{entry.chapterTitle || entry.host}</span>
-								<span class="continue-reading-meta">
-									{entry.host} · {Math.round(entry.progressPercent)}%
-								</span>
-							</button>
+							<div key={entry.workId} class="continue-reading-row">
+								<button
+									class="continue-reading-item"
+									type="button"
+									data-continue-reading-href={entry.chapterHref}
+									onClick={() => void runContinueReadingAction(entry)}
+								>
+									<span class="continue-reading-main">{entry.chapterTitle || entry.host}</span>
+									<span class="continue-reading-meta">
+										{entry.host} · {Math.round(entry.progressPercent)}%
+									</span>
+								</button>
+								<button
+									class="continue-reading-repair"
+									type="button"
+									data-repair-continue-reading-href={entry.chapterHref}
+									disabled={!hasReader}
+									onClick={() => void repairContinueReadingEntry(entry)}
+								>
+									{t('popup.repairHere')}
+								</button>
+							</div>
 						))}
 					</div>
 				</section>
