@@ -4,6 +4,7 @@ import {
 	buildFullBackupFilename,
 	buildLatestReadsFilename,
 	buildMappingId,
+	copySyncableStorageTo,
 	createBlankMapping,
 	ensureReaderScript,
 	extensionStorage,
@@ -16,6 +17,7 @@ import {
 	isFullBackup,
 	loadFullBackup,
 	loadLatestReadExport,
+	loadStorageMode,
 	loadUserMappings,
 	multilineTextToList,
 	normalizeHost,
@@ -37,7 +39,7 @@ import {
 	upsertMappingEntry
 } from '../shared';
 import { MappingCard } from './MappingCard';
-import type { ReaderModeSettings, ShortcutSettings } from '../shared';
+import type { ReaderModeSettings, ShortcutSettings, StorageMode } from '../shared';
 import type { MappingEntry, MappingState } from './types';
 
 (globalThis as any).__readerHotkeysTest = {
@@ -49,6 +51,7 @@ export function OptionsApp() {
 	const [mappingState, setMappingState] = useState<MappingState>({ version: 3, entries: [] });
 	const [shortcutSettings, setShortcutSettings] = useState<ShortcutSettings>(normalizeShortcutSettings(null));
 	const [readerModeSettings, setReaderModeSettings] = useState<ReaderModeSettings>(normalizeReaderModeSettings(null));
+	const [storageMode, setStorageModeState] = useState<StorageMode>('local');
 	const [resumeSummary, setResumeSummary] = useState({ totalWorks: 0, totalEntries: 0 });
 	const [message, setMessageState] = useState<{ text: string; error: boolean }>({ text: '', error: false });
 	const importFileRef = useRef<HTMLInputElement>(null);
@@ -83,16 +86,18 @@ export function OptionsApp() {
 
 	async function initialize() {
 		try {
-			const [nextMappingState, latestReads, nextShortcutSettings, nextReaderModeSettings] = await Promise.all([
+			const [nextMappingState, latestReads, nextShortcutSettings, nextReaderModeSettings, nextStorageMode] = await Promise.all([
 				loadUserMappings(),
 				loadLatestReadExport(),
 				loadGlobalShortcutSettings(),
-				loadReaderModeSettings()
+				loadReaderModeSettings(),
+				loadStorageMode()
 			]);
 
 			setMappingState(nextMappingState);
 			setShortcutSettings(nextShortcutSettings);
 			setReaderModeSettings(nextReaderModeSettings);
+			setStorageModeState(nextStorageMode);
 			setResumeSummary({
 				totalWorks: latestReads.totalWorks,
 				totalEntries: latestReads.totalEntries
@@ -187,6 +192,17 @@ export function OptionsApp() {
 			setMessage('Modo lectura guardado. Recarga la pestana lectora para aplicar cambios.');
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
+		}
+	}
+
+	async function saveStorageSync() {
+		try {
+			const nextMode: StorageMode = storageMode === 'sync' ? 'sync' : 'local';
+			await copySyncableStorageTo(nextMode);
+			setStorageModeState(nextMode);
+			setMessage(nextMode === 'sync' ? 'Sync activado para mapeos y settings.' : 'Sync desactivado. Mapeos y settings quedan locales.');
+		} catch (error) {
+			setMessage(`No pude cambiar sync: ${getErrorMessage(error)}`, true);
 		}
 	}
 
@@ -540,6 +556,28 @@ async function migrateFromTargetTab(mappingId: string) {
 						/>
 					</label>
 				</div>
+			</section>
+
+			<section class="shortcut-settings">
+				<div class="shortcut-settings-head">
+					<div>
+						<h2>Sync opcional</h2>
+					</div>
+					<button id="save-storage-sync" type="button" class="primary" onClick={() => void saveStorageSync()}>
+						Guardar sync
+					</button>
+				</div>
+				<label class="toggle-row">
+					<span class="field-label">Sincronizar mapeos y settings con Chrome Sync</span>
+					<div class="toggle-switch">
+						<input
+							id="sync-storage-enabled"
+							type="checkbox"
+							checked={storageMode === 'sync'}
+							onChange={event => setStorageModeState(event.currentTarget.checked ? 'sync' : 'local')}
+						/>
+					</div>
+				</label>
 			</section>
 
 			{/* ── Summary ── */}

@@ -1,5 +1,6 @@
 export const STORAGE_KEYS = {
 	settings: 'readerHotkeysSettings',
 	resume: 'readerHotkeysResume',
-	userMappings: 'readerHotkeysUserMappings'
+	userMappings: 'readerHotkeysUserMappings',
+	storageMode: 'readerHotkeysStorageMode'
 } as const;

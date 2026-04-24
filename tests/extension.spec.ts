@@ -243,6 +243,22 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await optionsPage.click('#save-reading-mode');
 		await expect(optionsPage.locator('.notice')).toContainText('Modo lectura guardado');
 
+		await optionsPage.check('#sync-storage-enabled');
+		await optionsPage.click('#save-storage-sync');
+		await expect(optionsPage.locator('.notice')).toContainText('Sync activado');
+		const syncedData = await optionsPage.evaluate(async () => {
+			return chrome.storage.sync.get(['readerHotkeysSettings', 'readerHotkeysUserMappings']);
+		}) as {
+			readerHotkeysSettings: { _global?: unknown };
+			readerHotkeysUserMappings: { entries?: unknown[] };
+		};
+		expect(syncedData.readerHotkeysUserMappings.entries).toHaveLength(1);
+		expect(syncedData.readerHotkeysSettings._global).toBeTruthy();
+
+		await optionsPage.uncheck('#sync-storage-enabled');
+		await optionsPage.click('#save-storage-sync');
+		await expect(optionsPage.locator('.notice')).toContainText('Sync desactivado');
+
 		await optionsPage.close();
 	});
 

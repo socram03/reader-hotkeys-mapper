@@ -15,8 +15,11 @@ const STORAGE_KEYS = {
 	settings: 'readerHotkeysSettings',
 	resume: 'readerHotkeysResume',
 	chapterCache: 'readerHotkeysChapterCache',
-	userMappings: 'readerHotkeysUserMappings'
+	userMappings: 'readerHotkeysUserMappings',
+	storageMode: 'readerHotkeysStorageMode'
 };
+
+const SYNCABLE_STORAGE_KEYS = new Set([STORAGE_KEYS.settings, STORAGE_KEYS.userMappings]);
 
 const HELP_OVERLAY_ID = 'reader-hotkeys-help';
 const CHAPTER_MAP_OVERLAY_ID = 'reader-hotkeys-chapter-map';
@@ -2366,13 +2369,35 @@ function createStorage() {
 			get(keys) {
 				return new Promise(resolve => {
 					try {
-						chrome.storage.local.get(keys, value => {
+						const keyList = Array.isArray(keys) ? keys : [keys];
+						chrome.storage.local.get([...keyList, STORAGE_KEYS.storageMode], async localValue => {
 							if (hasRuntimeError()) {
 								resolve({});
 								return;
 							}
 
-							resolve(value || {});
+							if (localValue?.[STORAGE_KEYS.storageMode] !== 'sync' || !chrome.storage?.sync) {
+								resolve(localValue || {});
+								return;
+							}
+
+							const syncKeys = keyList.filter(key => SYNCABLE_STORAGE_KEYS.has(key));
+							if (!syncKeys.length) {
+								resolve(localValue || {});
+								return;
+							}
+
+							chrome.storage.sync.get(syncKeys, syncValue => {
+								if (hasRuntimeError()) {
+									resolve(localValue || {});
+									return;
+								}
+
+								resolve({
+									...(localValue || {}),
+									...(syncValue || {})
+								});
+							});
 						});
 					} catch {
 						resolve({});
@@ -2382,8 +2407,35 @@ function createStorage() {
 			set(values) {
 				return new Promise<void>(resolve => {
 					try {
-						chrome.storage.local.set(values, () => {
-							hasRuntimeError();
+						chrome.storage.local.get([STORAGE_KEYS.storageMode], modeValue => {
+							const useSync = modeValue?.[STORAGE_KEYS.storageMode] === 'sync' && Boolean(chrome.storage?.sync);
+							const localValues = {};
+							const syncValues = {};
+
+							Object.entries(values).forEach(([key, value]) => {
+								if (useSync && SYNCABLE_STORAGE_KEYS.has(key)) {
+									syncValues[key] = value;
+									return;
+								}
+
+								localValues[key] = value;
+							});
+
+							const finish = () => {
+								hasRuntimeError();
+								resolve();
+							};
+
+							if (Object.keys(syncValues).length) {
+								chrome.storage.sync.set(syncValues, finish);
+								return;
+							}
+
+							if (Object.keys(localValues).length) {
+								chrome.storage.local.set(localValues, finish);
+								return;
+							}
+
 							resolve();
 						});
 					} catch {
