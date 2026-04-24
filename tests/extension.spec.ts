@@ -75,6 +75,24 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await readerPage.click('[data-mapper-save="true"]');
 		await waitForExtensionReady(readerPage);
 
+		await optionsPage.bringToFront();
+		await optionsPage.selectOption('#language-select', 'en');
+		await optionsPage.click('#save-language');
+		await expect(optionsPage.locator('h1')).toContainText('Options and mappings');
+		await readerPage.reload();
+		await waitForExtensionReady(readerPage);
+		await readerPage.keyboard.press('h');
+		await expect(readerPage.locator('#reader-hotkeys-help')).toContainText('Shortcuts');
+		await expect(readerPage.locator('#reader-hotkeys-help')).toContainText('Show or hide help');
+		await readerPage.keyboard.press('Escape');
+
+		await optionsPage.bringToFront();
+		await optionsPage.selectOption('#language-select', 'es');
+		await optionsPage.click('#save-language');
+		await expect(optionsPage.locator('h1')).toContainText('Opciones y mapeos');
+		await readerPage.reload();
+		await waitForExtensionReady(readerPage);
+
 		await readerPage.keyboard.press('ArrowRight');
 		await expect(readerPage).toHaveURL(/reader-2\.html$/);
 

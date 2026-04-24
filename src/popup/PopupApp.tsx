@@ -17,6 +17,7 @@ export function PopupApp() {
 	const [continueReading, setContinueReading] = useState<LatestReadExportEntry[]>([]);
 	const [language, setLanguage] = useState<Language>('es');
 	const [error, setError] = useState('');
+	const t = (key: Parameters<typeof getMessage>[1], values?: Parameters<typeof getMessage>[2]) => getMessage(language, key, values);
 
 	useEffect(() => {
 		void initialize();
@@ -29,7 +30,7 @@ export function PopupApp() {
 			const tab = await getBestTargetTab();
 			setTargetTab(tab);
 			if (!tab?.id) {
-				setError('No encontre una pestana web compatible en esta ventana.');
+				setError(t('popup.noCompatibleTab'));
 				return;
 			}
 
@@ -38,7 +39,7 @@ export function PopupApp() {
 			await refreshContinueReading();
 			setError('');
 		} catch (nextError) {
-			setError(`No pude preparar la extension en la pestana objetivo: ${getErrorMessage(nextError)}`);
+			setError(t('popup.prepareError', { error: getErrorMessage(nextError) }));
 		}
 	}
 
@@ -56,7 +57,7 @@ export function PopupApp() {
 			setError('');
 			if (options?.closeAfter) window.close();
 		} catch (nextError) {
-			setError(`No pude comunicarme con la pestana objetivo: ${getErrorMessage(nextError)}`);
+			setError(t('popup.messageError', { error: getErrorMessage(nextError) }));
 		}
 	}
 
@@ -73,7 +74,7 @@ export function PopupApp() {
 			setError('');
 			window.close();
 		} catch (nextError) {
-			setError(`No pude retomar la lectura: ${getErrorMessage(nextError)}`);
+			setError(t('popup.resumeError', { error: getErrorMessage(nextError) }));
 		}
 	}
 
@@ -91,7 +92,7 @@ export function PopupApp() {
 			setError('');
 			window.close();
 		} catch (nextError) {
-			setError(`No pude retomar la lectura: ${getErrorMessage(nextError)}`);
+			setError(t('popup.resumeError', { error: getErrorMessage(nextError) }));
 		}
 	}
 
@@ -105,17 +106,17 @@ export function PopupApp() {
 	const autoNextActive = Boolean(status?.settings?.autoNext);
 	const autoScrollSpeed = Number(status?.settings?.autoScrollSpeed) || 0;
 	const hasLastRead = Boolean(status?.lastReadAvailable && status?.lastReadHref);
-	const lastReadLabel = status?.lastReadTitle || 'Sin progreso guardado';
+	const lastReadLabel = status?.lastReadTitle || t('popup.noProgress');
 
 	const activationMessage = hasCandidateMapping && !matchedMappingEnabled
-		? 'Sitio personalizado desactivado'
+		? t('popup.customSiteDisabled')
 			: hasReader
-				? status?.siteLabel || 'Lector detectado'
+				? status?.siteLabel || t('popup.readerDetected')
 			: hasMappingCandidate
-				? getMessage(language, 'popup.probableReader')
+				? t('popup.probableReader')
 			: hasSupportedSite
-				? `${status?.siteLabel || 'Sitio soportado'} - pagina fuera del lector`
-				: 'Sin mapeo activo';
+				? t('popup.supportedOutsideReader', { site: status?.siteLabel || t('popup.statusSupported') })
+				: t('popup.noActiveMapping');
 
 	return (
 		<main class="popup">
@@ -127,11 +128,11 @@ export function PopupApp() {
 					</div>
 					<div class="brand-text">
 						<p class="eyebrow">Reader Hotkeys</p>
-						<h1>Control</h1>
+						<h1>{t('popup.control')}</h1>
 					</div>
 				</div>
 				<button class="btn-options" type="button" onClick={() => chrome.runtime.openOptionsPage()}>
-					Config
+					{t('popup.config')}
 				</button>
 			</header>
 
@@ -146,30 +147,30 @@ export function PopupApp() {
 							{status?.pathname && <div class="status-path">{status.pathname}</div>}
 						</div>
 						<span class={`led ${hasSupportedSite ? 'on' : 'off'}`}>
-							{hasReader ? 'Activo' : hasSupportedSite ? 'Soportado' : 'Inactivo'}
+							{hasReader ? t('popup.statusActive') : hasSupportedSite ? t('popup.statusSupported') : t('popup.statusInactive')}
 						</span>
 					</div>
 					<div class="status-meta">
 						<div class="meta-row">
-							<span class="meta-label">Contexto</span>
+							<span class="meta-label">{t('popup.context')}</span>
 							<span class="meta-value">{activationMessage}</span>
 						</div>
 						<div class="meta-row">
-							<span class="meta-label">Mapeos</span>
+							<span class="meta-label">{t('popup.mappings')}</span>
 							<span class={`meta-value ${!status?.hostMappingCount ? 'dim' : ''}`}>
-								{status?.hostMappingCount || 0} en host
+								{t('popup.mappingsInHost', { count: status?.hostMappingCount || 0 })}
 								{status?.matchedMappingLabel ? ` · ${status.matchedMappingLabel}` : ''}
 							</span>
 						</div>
 						<div class="meta-row">
-							<span class="meta-label">Modos</span>
+							<span class="meta-label">{t('popup.modes')}</span>
 							<span class="meta-value">
 								Zen {zenActive ? '●' : '○'} &nbsp; Scroll {autoNextActive ? '●' : '○'}
 								{autoScrollSpeed ? ` · ${autoScrollSpeed} px/s` : ''}
 							</span>
 						</div>
 						<div class="meta-row">
-							<span class="meta-label">Ultimo</span>
+							<span class="meta-label">{t('popup.last')}</span>
 							<span class={`meta-value ${hasLastRead ? '' : 'dim'}`}>{lastReadLabel}</span>
 						</div>
 					</div>
@@ -186,10 +187,10 @@ export function PopupApp() {
 					onClick={() => runTabAction('reader:start-mapper', { closeAfter: true })}
 				>
 					{hasCandidateMapping
-						? getMessage(language, 'popup.adjustMapping')
+						? t('popup.adjustMapping')
 						: hasMappingCandidate
-							? getMessage(language, 'popup.mapReader')
-							: getMessage(language, 'popup.startMapping')}
+							? t('popup.mapReader')
+							: t('popup.startMapping')}
 				</button>
 				<button
 					id="toggle-site-activation"
@@ -198,7 +199,7 @@ export function PopupApp() {
 					disabled={Boolean(error) || !hasCandidateMapping || isBuiltInSite}
 					onClick={() => runTabAction('reader:toggle-current-mapping')}
 				>
-					{matchedMappingEnabled ? 'Desactivar sitio' : 'Activar sitio'}
+					{matchedMappingEnabled ? t('popup.disableSite') : t('popup.enableSite')}
 				</button>
 				<button
 					id="toggle-focus"
@@ -207,7 +208,7 @@ export function PopupApp() {
 					disabled={!hasReader}
 					onClick={() => runTabAction('reader:toggle-focus')}
 				>
-					{zenActive ? 'Zen ON' : 'Zen'}
+					{zenActive ? t('popup.zenOn') : t('popup.zen')}
 					<span class="key-label">z</span>
 				</button>
 				<button
@@ -217,7 +218,7 @@ export function PopupApp() {
 					disabled={!hasReader}
 					onClick={() => runTabAction('reader:toggle-auto-next')}
 				>
-					{autoNextActive ? 'Scroll ON' : 'Auto-scroll'}
+					{autoNextActive ? t('popup.scrollOn') : t('popup.autoScroll')}
 					<span class="key-label">a</span>
 				</button>
 				<button
@@ -227,7 +228,7 @@ export function PopupApp() {
 					disabled={!hasLastRead}
 					onClick={() => void runResumeAction()}
 				>
-					Retomar
+					{t('popup.resume')}
 					<span class="key-label">l</span>
 				</button>
 				<button
@@ -237,14 +238,14 @@ export function PopupApp() {
 					disabled={!hasReader}
 					onClick={() => runTabAction('reader:open-help', { closeAfter: true })}
 				>
-					Ayuda
+					{t('popup.help')}
 					<span class="key-label">?</span>
 				</button>
 			</section>
 
 			{continueReading.length ? (
 				<section class="continue-reading">
-					<div class="continue-reading-title">Seguir leyendo</div>
+					<div class="continue-reading-title">{t('popup.continueReading')}</div>
 					<div id="continue-reading-list" class="continue-reading-list">
 						{continueReading.map(entry => (
 							<button
@@ -266,23 +267,23 @@ export function PopupApp() {
 
 			{/* ── Shortcuts ── */}
 			<footer class="shortcuts">
-				<div class="shortcuts-title">Atajos rapidos</div>
+				<div class="shortcuts-title">{t('popup.quickShortcuts')}</div>
 				<div class="shortcut-grid">
 					<div class="shortcut-pill">
 						<span class="key">m</span>
-						<span>Obra</span>
+						<span>{t('popup.work')}</span>
 					</div>
 					<div class="shortcut-pill">
 						<span class="key">l</span>
-						<span>Retomar</span>
+						<span>{t('popup.resume')}</span>
 					</div>
 					<div class="shortcut-pill">
 						<span class="key">z</span>
-						<span>Zen</span>
+						<span>{t('popup.zen')}</span>
 					</div>
 					<div class="shortcut-pill">
 						<span class="key">j/k</span>
-						<span>Scroll</span>
+						<span>{t('popup.scroll')}</span>
 					</div>
 				</div>
 			</footer>
@@ -291,7 +292,7 @@ export function PopupApp() {
 }
 
 function getErrorMessage(error: unknown) {
-	return error instanceof Error ? error.message : String(error || 'Error desconocido');
+	return error instanceof Error ? error.message : String(error || 'Unknown error');
 }
 
 function areComparableHrefsEqual(left: string, right: string) {

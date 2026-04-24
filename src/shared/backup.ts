@@ -34,7 +34,7 @@ export async function loadFullBackup(date = new Date()): Promise<FullBackup> {
 export async function importFullBackup(rawBackup: unknown): Promise<FullBackup> {
 	const backup = normalizeFullBackup(rawBackup);
 	if (!backup) {
-		throw new Error('El archivo no es un backup completo valido.');
+		throw new Error('The file is not a valid full backup.');
 	}
 
 	await extensionStorage.set({

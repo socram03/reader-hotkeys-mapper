@@ -1,10 +1,12 @@
 import type { JSX } from 'preact';
 import { useState } from 'preact/hooks';
-import { formatShortcutKey, normalizeShortcutKeyInput, SHORTCUT_LABELS } from '../shared';
+import { formatShortcutKey, getMessage, normalizeShortcutKeyInput } from '../shared';
+import type { Language, ShortcutAction } from '../shared';
 import type { MappingEntry } from './types';
 
 type MappingCardProps = {
 	entry: MappingEntry;
+	language: Language;
 	onFieldChange: (mappingId: string, field: string, value: string | boolean) => void;
 	onSave: (mappingId: string) => void;
 	onDelete: (mappingId: string) => void;
@@ -14,8 +16,9 @@ type MappingCardProps = {
 };
 
 export function MappingCard(props: MappingCardProps) {
-	const { entry, onFieldChange, onSave, onDelete, onDuplicate, onMigrate, onValidate } = props;
+	const { entry, language, onFieldChange, onSave, onDelete, onDuplicate, onMigrate, onValidate } = props;
 	const [collapsed, setCollapsed] = useState(true);
+	const t = (key: Parameters<typeof getMessage>[1], values?: Parameters<typeof getMessage>[2]) => getMessage(language, key, values);
 
 	return (
 		<article class={`mapping-card ${collapsed ? 'collapsed' : ''}`} data-mapping-id={entry.id}>
@@ -26,7 +29,7 @@ export function MappingCard(props: MappingCardProps) {
 						type="button"
 						class="collapse-toggle"
 						onClick={event => { event.stopPropagation(); setCollapsed(!collapsed); }}
-						aria-label={collapsed ? 'Expandir' : 'Minimizar'}
+						aria-label={collapsed ? t('mapping.expand') : t('mapping.collapse')}
 					>
 						<span class={`collapse-chevron ${collapsed ? '' : 'open'}`}>›</span>
 					</button>
@@ -39,8 +42,8 @@ export function MappingCard(props: MappingCardProps) {
 							{entry.host} · {entry.readingPrefix}
 							{collapsed && (
 								<span class="mapping-card-summary">
-									{' · '}{entry.enabled !== false ? 'Activo' : 'Inactivo'}
-									{entry.actions.next.selectors.length > 0 && ` · ${entry.actions.next.selectors.length} sel.`}
+									{' · '}{entry.enabled !== false ? t('mapping.statusActive') : t('mapping.statusInactive')}
+									{entry.actions.next.selectors.length > 0 && ` · ${t('mapping.selectorCount', { count: entry.actions.next.selectors.length })}`}
 								</span>
 							)}
 						</p>
@@ -49,21 +52,21 @@ export function MappingCard(props: MappingCardProps) {
 				<div class="mapping-card-head-actions" onClick={event => event.stopPropagation()}>
 					{collapsed ? (
 						<button type="button" class="primary" data-action="save" onClick={() => onSave(entry.id)}>
-							Guardar
+							{t('mapping.save')}
 						</button>
 					) : (
 						<>
 							<button type="button" class="ghost" data-action="validate" onClick={() => onValidate(entry.id)}>
-								Probar
+								{t('mapping.test')}
 							</button>
 							<button type="button" class="ghost" data-action="migrate" onClick={() => onMigrate(entry.id)}>
-								Migrar
+								{t('mapping.migrate')}
 							</button>
 							<button type="button" class="ghost" data-action="duplicate" onClick={() => onDuplicate(entry.id)}>
-								Duplicar
+								{t('mapping.duplicate')}
 							</button>
 							<button type="button" class="danger" data-action="delete" onClick={() => onDelete(entry.id)}>
-								Borrar
+								{t('mapping.delete')}
 							</button>
 						</>
 					)}
@@ -74,16 +77,16 @@ export function MappingCard(props: MappingCardProps) {
 			<div class="mapping-card-body">
 				{/* Identity fields */}
 				<div class="field-grid cols-2">
-					<Field label="Etiqueta">
+					<Field label={t('mapping.label')}>
 						<input type="text" data-input="label" value={entry.label} onInput={handleText(entry.id, 'label', onFieldChange)} />
 					</Field>
-					<Field label="Host principal">
-						<input type="text" data-input="host" value={entry.host} placeholder="ejemplo.com" onInput={handleText(entry.id, 'host', onFieldChange)} />
+					<Field label={t('mapping.mainHost')}>
+						<input type="text" data-input="host" value={entry.host} placeholder="example.com" onInput={handleText(entry.id, 'host', onFieldChange)} />
 					</Field>
 				</div>
 
 				<div class="field-grid cols-2">
-					<Field label="Prefijo de lectura">
+					<Field label={t('mapping.readingPrefix')}>
 						<input
 							type="text"
 							data-input="readingPrefix"
@@ -92,7 +95,7 @@ export function MappingCard(props: MappingCardProps) {
 							onInput={handleText(entry.id, 'readingPrefix', onFieldChange)}
 						/>
 					</Field>
-					<Field label="ID interno">
+					<Field label={t('mapping.internalId')}>
 						<input type="text" data-input="id" value={entry.id} disabled />
 					</Field>
 				</div>
@@ -100,7 +103,7 @@ export function MappingCard(props: MappingCardProps) {
 				{/* Toggle + hint */}
 				<div class="field-grid cols-2">
 					<label class="toggle-row">
-						<span class="field-label">Activar este mapeo</span>
+						<span class="field-label">{t('mapping.enable')}</span>
 						<div class="toggle-switch">
 							<input
 								type="checkbox"
@@ -111,23 +114,23 @@ export function MappingCard(props: MappingCardProps) {
 						</div>
 					</label>
 					<div class="hint-card">
-						<strong>Migraciones</strong>
-						<p>Usa alias de host y prefijos para sobrevivir cambios de dominio o rutas.</p>
+						<strong>{t('mapping.migrations')}</strong>
+						<p>{t('mapping.migrationHint')}</p>
 					</div>
 				</div>
 
 				{/* Migration aliases */}
-				<ActionSection title="Compatibilidad" arrow="~">
+				<ActionSection title={t('mapping.compatibility')} arrow="~">
 					<div class="field-grid cols-2">
-						<Field label="Hosts compatibles (uno por linea)">
+						<Field label={t('mapping.compatibleHosts')}>
 							<textarea
 								data-input="hostAliases"
 								value={entry.hostAliases.join('\n')}
-								placeholder={'www.ejemplo.com\nlectormirror.net'}
+								placeholder={'www.example.com\nreadermirror.net'}
 								onInput={handleText(entry.id, 'hostAliases', onFieldChange)}
 							/>
 						</Field>
-						<Field label="Prefijos compatibles (uno por linea)">
+						<Field label={t('mapping.compatiblePrefixes')}>
 							<textarea
 								data-input="readingPrefixes"
 								value={entry.readingPrefixes.join('\n')}
@@ -138,49 +141,52 @@ export function MappingCard(props: MappingCardProps) {
 					</div>
 				</ActionSection>
 
-				<ActionSection title="Atajos de este mapeo" arrow="⌘">
+				<ActionSection title={t('mapping.shortcuts')} arrow="⌘">
 					<div class="field-grid cols-3">
-						<ShortcutField action="next" entry={entry} onFieldChange={onFieldChange} />
-						<ShortcutField action="prev" entry={entry} onFieldChange={onFieldChange} />
-						<ShortcutField action="main" entry={entry} onFieldChange={onFieldChange} />
+						<ShortcutField action="next" entry={entry} language={language} onFieldChange={onFieldChange} />
+						<ShortcutField action="prev" entry={entry} language={language} onFieldChange={onFieldChange} />
+						<ShortcutField action="main" entry={entry} language={language} onFieldChange={onFieldChange} />
 					</div>
 				</ActionSection>
 
 				{/* Action sections */}
 				<ActionBlock
-					title="Siguiente"
+					title={t('mapping.next')}
 					arrow="→"
 					prefix="next"
 					action={entry.actions.next}
 					mappingId={entry.id}
+					language={language}
 					onFieldChange={onFieldChange}
 				/>
 				<ActionBlock
-					title="Anterior"
+					title={t('mapping.prev')}
 					arrow="←"
 					prefix="prev"
 					action={entry.actions.prev}
 					mappingId={entry.id}
+					language={language}
 					onFieldChange={onFieldChange}
 				/>
 				<ActionBlock
-					title="Principal"
+					title={t('mapping.main')}
 					arrow="↑"
 					prefix="main"
 					action={entry.actions.main}
 					mappingId={entry.id}
+					language={language}
 					onFieldChange={onFieldChange}
 				/>
 			</div>
 
 			{/* ── Footer ── */}
 			<div class="card-footer">
-				<span class="timestamp">{`Actualizado ${new Date(entry.updatedAt).toLocaleString()}`}</span>
+				<span class="timestamp">{t('mapping.updatedAt', { date: new Date(entry.updatedAt).toLocaleString() })}</span>
 				<button type="button" data-action="validate" class="ghost" onClick={() => onValidate(entry.id)}>
-					Probar en pestana
+					{t('mapping.testInTab')}
 				</button>
 				<button type="button" data-action="save" class="primary" onClick={() => onSave(entry.id)}>
-					Guardar mapeo
+					{t('mapping.saveMapping')}
 				</button>
 			</div>
 		</article>
@@ -190,17 +196,18 @@ export function MappingCard(props: MappingCardProps) {
 function ShortcutField(props: {
 	action: 'next' | 'prev' | 'main';
 	entry: MappingEntry;
+	language: Language;
 	onFieldChange: MappingCardProps['onFieldChange'];
 }) {
 	const value = props.entry.shortcuts?.[props.action] || '';
 
 	return (
-		<Field label={SHORTCUT_LABELS[props.action]}>
+		<Field label={getShortcutLabel(props.language, props.action)}>
 			<input
 				type="text"
 				data-domain-shortcut-action={props.action}
 				value={value ? formatShortcutKey(normalizeShortcutKeyInput(value)) : ''}
-				placeholder="Usar global"
+				placeholder={getMessage(props.language, 'mapping.useGlobal')}
 				onInput={handleText(props.entry.id, `shortcuts.${props.action}`, props.onFieldChange)}
 			/>
 		</Field>
@@ -227,14 +234,15 @@ function ActionBlock(props: {
 	prefix: 'next' | 'prev' | 'main';
 	action: MappingEntry['actions']['next'];
 	mappingId: string;
+	language: Language;
 	onFieldChange: MappingCardProps['onFieldChange'];
 }) {
-	const { title, arrow, prefix, action, mappingId, onFieldChange } = props;
+	const { title, arrow, prefix, action, mappingId, language, onFieldChange } = props;
 
 	return (
 		<ActionSection title={title} arrow={arrow}>
 			<div class="field-grid cols-2">
-				<Field label="Selectores CSS (uno por linea)">
+				<Field label={getMessage(language, 'mapping.cssSelectors')}>
 					<textarea
 						data-input={`${prefix}.selectors`}
 						value={action.selectors.join('\n')}
@@ -242,7 +250,7 @@ function ActionBlock(props: {
 					/>
 				</Field>
 				<div class="field-grid">
-					<Field label="Texto fallback">
+					<Field label={getMessage(language, 'mapping.fallbackText')}>
 						<input
 							type="text"
 							data-input={`${prefix}.text`}
@@ -250,12 +258,12 @@ function ActionBlock(props: {
 							onInput={handleText(mappingId, `${prefix}.text`, onFieldChange)}
 						/>
 					</Field>
-					<Field label="Href de muestra">
+					<Field label={getMessage(language, 'mapping.sampleHref')}>
 						<input
 							type="text"
 							data-input={`${prefix}.sampleHref`}
 							value={action.sampleHref}
-							placeholder="Solo referencia capturada; no se usa para navegar"
+							placeholder={getMessage(language, 'mapping.sampleHrefPlaceholder')}
 							onInput={handleText(mappingId, `${prefix}.sampleHref`, onFieldChange)}
 						/>
 					</Field>
@@ -263,6 +271,11 @@ function ActionBlock(props: {
 			</div>
 		</ActionSection>
 	);
+}
+
+function getShortcutLabel(language: Language, action: ShortcutAction) {
+	const key = `shortcuts.${action}` as Parameters<typeof getMessage>[1];
+	return getMessage(language, key);
 }
 
 function Field(props: { label: string; children: JSX.Element }) {

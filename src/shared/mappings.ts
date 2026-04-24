@@ -121,7 +121,7 @@ export function createBlankMapping(host: string): MappingEntry {
 	return {
 		id: buildMappingId(safeHost || 'example.com', '/leer/'),
 		host: safeHost,
-		label: safeHost || 'Nuevo mapeo',
+		label: safeHost || 'New mapping',
 		enabled: false,
 		hostAliases: [],
 		readingPrefix: '/leer/',
@@ -146,7 +146,7 @@ export function upsertMappingEntry(state: MappingState, entry: MappingEntry): Ma
 	});
 
 	if (!normalizedEntry) {
-		throw new Error('El mapeo necesita host, readingPrefix, accion next y accion main.');
+		throw new Error('The mapping needs host, readingPrefix, next action, and main action.');
 	}
 
 	const entries = normalizedState.entries.filter(item => item.id !== normalizedEntry.id);

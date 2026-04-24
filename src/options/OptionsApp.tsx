@@ -36,13 +36,12 @@ import {
 	saveLanguage,
 	sendReaderMessage,
 	SHORTCUT_ACTIONS,
-	SHORTCUT_LABELS,
 	STORAGE_KEYS,
 	textToSelectors,
 	upsertMappingEntry
 } from '../shared';
 import { MappingCard } from './MappingCard';
-import type { Language, ReaderModeSettings, ShortcutSettings, StorageMode } from '../shared';
+import type { Language, ReaderModeSettings, ShortcutAction, ShortcutSettings, StorageMode } from '../shared';
 import type { MappingEntry, MappingState } from './types';
 
 (globalThis as any).__readerHotkeysTest = {
@@ -59,6 +58,7 @@ export function OptionsApp() {
 	const [resumeSummary, setResumeSummary] = useState({ totalWorks: 0, totalEntries: 0 });
 	const [message, setMessageState] = useState<{ text: string; error: boolean }>({ text: '', error: false });
 	const importFileRef = useRef<HTMLInputElement>(null);
+	const t = (key: Parameters<typeof getMessage>[1], values?: Parameters<typeof getMessage>[2]) => getMessage(language, key, values);
 
 	useEffect(() => {
 		void initialize();
@@ -109,7 +109,7 @@ export function OptionsApp() {
 				totalEntries: latestReads.totalEntries
 			});
 		} catch (error) {
-			setMessage(`No pude cargar opciones: ${getErrorMessage(error)}`, true);
+			setMessage(t('options.loadError', { error: getErrorMessage(error) }), true);
 		}
 	}
 
@@ -157,9 +157,13 @@ export function OptionsApp() {
 			for (const action of SHORTCUT_ACTIONS) {
 				const key = normalized[action];
 				if (usedShortcuts.has(key)) {
-					throw new Error(`Atajo duplicado: ${formatShortcutKey(key)} en ${usedShortcuts.get(key)} y ${SHORTCUT_LABELS[action]}.`);
+					throw new Error(t('options.shortcutDuplicate', {
+						key: formatShortcutKey(key),
+						first: usedShortcuts.get(key) || '',
+						second: getShortcutLabel(language, action)
+					}));
 				}
-				usedShortcuts.set(key, SHORTCUT_LABELS[action]);
+				usedShortcuts.set(key, getShortcutLabel(language, action));
 			}
 
 			const data = await extensionStorage.get([STORAGE_KEYS.settings]);
@@ -174,7 +178,7 @@ export function OptionsApp() {
 
 			await extensionStorage.set({ [STORAGE_KEYS.settings]: settings });
 			setShortcutSettings(normalized);
-			setMessage('Atajos guardados. Recarga la pestana lectora para aplicar cambios.');
+			setMessage(t('options.shortcutSaved'));
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
@@ -195,7 +199,7 @@ export function OptionsApp() {
 
 			await extensionStorage.set({ [STORAGE_KEYS.settings]: settings });
 			setReaderModeSettings(normalized);
-			setMessage('Modo lectura guardado. Recarga la pestana lectora para aplicar cambios.');
+			setMessage(t('options.readingModeSaved'));
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
@@ -206,16 +210,16 @@ export function OptionsApp() {
 			const nextMode: StorageMode = storageMode === 'sync' ? 'sync' : 'local';
 			await copySyncableStorageTo(nextMode);
 			setStorageModeState(nextMode);
-			setMessage(nextMode === 'sync' ? 'Sync activado para mapeos y settings.' : 'Sync desactivado. Mapeos y settings quedan locales.');
+			setMessage(nextMode === 'sync' ? t('options.syncEnabled') : t('options.syncDisabled'));
 		} catch (error) {
-			setMessage(`No pude cambiar sync: ${getErrorMessage(error)}`, true);
+			setMessage(t('options.syncError', { error: getErrorMessage(error) }), true);
 		}
 	}
 
 	async function saveSelectedLanguage() {
 		try {
 			await saveLanguage(language);
-			setMessage(getMessage(language, 'language.saved'));
+			setMessage(t('language.saved'));
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
@@ -224,15 +228,15 @@ export function OptionsApp() {
 	async function saveEntry(mappingId: string) {
 		try {
 			const entry = mappingState.entries.find(item => item.id === mappingId);
-			if (!entry) throw new Error('No encontre el mapeo a guardar.');
+			if (!entry) throw new Error(t('options.mappingNotFoundSave'));
 
 			const normalizedEntry = normalizeEntryForSave(entry);
-			if (!normalizedEntry.host) throw new Error('Falta el host principal.');
+			if (!normalizedEntry.host) throw new Error(t('options.mappingMissingHost'));
 			if (!normalizedEntry.actions.next.selectors.length && !normalizedEntry.actions.next.text) {
-				throw new Error('La accion siguiente necesita selector o texto fallback.');
+				throw new Error(t('options.mappingMissingNext'));
 			}
 			if (!normalizedEntry.actions.main.selectors.length && !normalizedEntry.actions.main.text) {
-				throw new Error('La accion principal necesita selector o texto fallback.');
+				throw new Error(t('options.mappingMissingMain'));
 			}
 
 			let nextState = mappingState;
@@ -243,25 +247,25 @@ export function OptionsApp() {
 			const updatedState = upsertMappingEntry(nextState, normalizedEntry);
 			setMappingState(updatedState);
 			await saveUserMappings(updatedState);
-			setMessage(`Guardado ${normalizedEntry.label}`);
+			setMessage(t('options.mappingSaved', { label: normalizedEntry.label }));
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
 	}
 
 	async function deleteEntry(mappingId: string) {
-		if (!confirm('Borrar este mapeo?')) return;
+		if (!confirm(t('options.mappingDeleteConfirm'))) return;
 
 		const nextState = removeMappingEntry(mappingState, mappingId);
 		setMappingState(nextState);
 		await saveUserMappings(nextState);
-		setMessage('Mapeo borrado.');
+		setMessage(t('options.mappingDeleted'));
 	}
 
 	async function duplicateEntry(mappingId: string) {
 		try {
 			const entry = mappingState.entries.find(item => item.id === mappingId);
-			if (!entry) throw new Error('No encontre el mapeo a duplicar.');
+			if (!entry) throw new Error(t('options.mappingNotFoundDuplicate'));
 
 			const duplicated = normalizeEntryForSave({
 				...entry,
@@ -274,7 +278,7 @@ export function OptionsApp() {
 			const nextState = upsertMappingEntry(mappingState, duplicated);
 			setMappingState(nextState);
 			await saveUserMappings(nextState);
-			setMessage('Mapeo duplicado. Quedo desactivado para que revises los cambios antes de usarlo.');
+			setMessage(t('options.mappingDuplicated'));
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
@@ -285,7 +289,7 @@ export function OptionsApp() {
 			const targetTab = await getBestTargetTab().catch(() => null);
 			const host = targetTab?.url ? new URL(targetTab.url).host : '';
 			if (!host) {
-				setMessage('Abre una web normal en otra pestana de esta ventana para prefijar el host, o lanza el picker directamente.', true);
+				setMessage(t('options.needTargetTab'), true);
 				return;
 			}
 
@@ -293,7 +297,7 @@ export function OptionsApp() {
 			const nextState = upsertMappingEntry(mappingState, blank);
 			setMappingState(nextState);
 			await saveUserMappings(nextState);
-			setMessage(`Se creo un mapeo nuevo para ${host}. Quedo desactivado hasta que lo actives.`);
+			setMessage(t('options.mappingCreated', { host }));
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
@@ -303,21 +307,21 @@ export function OptionsApp() {
 		try {
 			const targetTab = await getBestTargetTab();
 			if (!targetTab?.id) {
-				setMessage('No encontre una pestana web compatible en esta ventana.', true);
+				setMessage(t('options.noCompatibleTab'), true);
 				return;
 			}
 
 			await sendReaderMessage(targetTab.id, { type: 'reader:start-mapper' });
-			setMessage(`Picker iniciado en ${targetTab.title || targetTab.url}. Vuelve a esa pagina y selecciona los botones.`);
+			setMessage(t('options.pickerStarted', { target: targetTab.title || targetTab.url || '' }));
 		} catch (error) {
-			setMessage(`No pude iniciar el picker: ${getErrorMessage(error)}`, true);
+			setMessage(t('options.pickerStartError', { error: getErrorMessage(error) }), true);
 		}
 	}
 
 async function migrateFromTargetTab(mappingId: string) {
 		try {
 			const targetTab = await getBestTargetTab();
-			if (!targetTab?.url) throw new Error('No encontre una pestana web compatible para migrar.');
+			if (!targetTab?.url) throw new Error(t('options.noTabForMigration'));
 
 			const url = new URL(targetTab.url);
 			const host = normalizeHost(url.host);
@@ -339,7 +343,7 @@ async function migrateFromTargetTab(mappingId: string) {
 				})
 			}));
 
-			setMessage(`Anadi ${host} y ${prefix} como alias de migracion. Guarda el mapeo para aplicar el cambio.`);
+			setMessage(t('options.migrationAdded', { host, prefix }));
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
@@ -348,10 +352,10 @@ async function migrateFromTargetTab(mappingId: string) {
 	async function validateMapping(mappingId: string) {
 		try {
 			const entry = mappingState.entries.find(item => item.id === mappingId);
-			if (!entry) throw new Error('No encontre el mapeo a probar.');
+			if (!entry) throw new Error(t('options.mappingNotFoundValidate'));
 
 			const targetTab = await getBestTargetTab();
-			if (!targetTab?.id) throw new Error('No encontre una pestana web compatible para probar.');
+			if (!targetTab?.id) throw new Error(t('options.noTabForValidate'));
 
 			const result = await sendReaderMessage<{
 				ok?: boolean;
@@ -362,18 +366,18 @@ async function migrateFromTargetTab(mappingId: string) {
 			});
 
 			if (!result?.ok || !result.results) {
-				throw new Error('No pude probar este mapeo en la pestana objetivo.');
+				throw new Error(t('options.validateFailedTab'));
 			}
 
 			const labels = [
-				`Siguiente ${result.results.next ? 'OK' : 'falla'}`,
-				`Anterior ${result.results.prev ? 'OK' : 'falla'}`,
-				`Principal ${result.results.main ? 'OK' : 'falla'}`
+				t('options.validateNext', { status: result.results.next ? t('options.validateOk') : t('options.validateFail') }),
+				t('options.validatePrev', { status: result.results.prev ? t('options.validateOk') : t('options.validateFail') }),
+				t('options.validateMain', { status: result.results.main ? t('options.validateOk') : t('options.validateFail') })
 			];
 
-			setMessage(`Prueba completada: ${labels.join(' · ')}`, !result.results.next || !result.results.main);
+			setMessage(t('options.validateCompleted', { summary: labels.join(' · ') }), !result.results.next || !result.results.main);
 		} catch (error) {
-			setMessage(`Prueba fallida: ${getErrorMessage(error)}`, true);
+			setMessage(t('options.validateFailed', { error: getErrorMessage(error) }), true);
 		}
 	}
 
@@ -385,16 +389,16 @@ async function migrateFromTargetTab(mappingId: string) {
 		anchor.download = 'reader-hotkeys-mappings.json';
 		anchor.click();
 		URL.revokeObjectURL(url);
-		setMessage('Exportacion lista.');
+		setMessage(t('options.exportReady'));
 	}
 
 	async function exportBackup() {
 		try {
 			const backup = await loadFullBackup();
 			downloadJsonFile(backup, buildFullBackupFilename());
-			setMessage('Backup completo exportado.');
+			setMessage(t('options.backupExported'));
 		} catch (error) {
-			setMessage(`No pude exportar el backup: ${getErrorMessage(error)}`, true);
+			setMessage(t('options.backupExportFailed', { error: getErrorMessage(error) }), true);
 		}
 	}
 
@@ -402,7 +406,7 @@ async function migrateFromTargetTab(mappingId: string) {
 		try {
 			const latestReads = await loadLatestReadExport();
 			if (!latestReads.totalWorks) {
-				throw new Error('No hay ultimos capitulos guardados para exportar.');
+				throw new Error(t('options.noReadsToExport'));
 			}
 
 			setResumeSummary({
@@ -411,7 +415,7 @@ async function migrateFromTargetTab(mappingId: string) {
 			});
 
 			downloadJsonFile(latestReads, buildLatestReadsFilename());
-			setMessage(`Exporte ${latestReads.totalWorks} obra(s) con progreso guardado.`);
+			setMessage(t('options.readsExported', { count: latestReads.totalWorks }));
 		} catch (error) {
 			setMessage(getErrorMessage(error), true);
 		}
@@ -429,16 +433,16 @@ async function migrateFromTargetTab(mappingId: string) {
 				const backup = await importFullBackup(parsed);
 				setMappingState(backup.userMappings);
 				await refreshResumeSummary();
-				setMessage('Backup importado.');
+				setMessage(t('options.backupImported'));
 				return;
 			}
 
 			const imported = normalizeUserMappings(parsed);
 			setMappingState(imported);
 			await saveUserMappings(imported);
-			setMessage('Importacion completada.');
+			setMessage(t('options.importCompleted'));
 		} catch (error) {
-			setMessage(`Importacion fallida: ${getErrorMessage(error)}`, true);
+			setMessage(t('options.importFailed', { error: getErrorMessage(error) }), true);
 		} finally {
 			input.value = '';
 		}
@@ -462,22 +466,22 @@ async function migrateFromTargetTab(mappingId: string) {
 					</div>
 				<div class="hero-actions">
 					<button id="start-picker" class="primary" type="button" onClick={startPickerOnTargetTab}>
-						Picker en pestana
+						{t('options.pickerTab')}
 					</button>
 					<button id="add-mapping" type="button" onClick={addMapping}>
-						+ Nuevo mapeo
+						{t('options.newMapping')}
 					</button>
 					<button id="export-mappings" class="ghost" type="button" onClick={exportMappings}>
-						Exportar
+						{t('options.exportMappings')}
 					</button>
 					<button id="export-latest-reads" class="ghost" type="button" onClick={() => void exportLatestReads()}>
-						Exportar lecturas
+						{t('options.exportReads')}
 					</button>
 					<button id="export-backup" class="ghost" type="button" onClick={() => void exportBackup()}>
-						Exportar backup
+						{t('options.exportBackup')}
 					</button>
 					<button id="import-mappings" class="ghost" type="button" onClick={() => importFileRef.current?.click()}>
-						Importar
+						{t('options.importMappings')}
 					</button>
 					<input
 						id="import-json-file"
@@ -522,16 +526,16 @@ async function migrateFromTargetTab(mappingId: string) {
 			<section class="shortcut-settings">
 				<div class="shortcut-settings-head">
 					<div>
-						<h2>Atajos globales</h2>
+						<h2>{t('shortcuts.title')}</h2>
 					</div>
 					<button id="save-shortcuts" type="button" class="primary" onClick={() => void saveShortcuts()}>
-						Guardar atajos
+						{t('shortcuts.save')}
 					</button>
 				</div>
 				<div class="shortcut-settings-grid">
 					{SHORTCUT_ACTIONS.map(action => (
 						<label class="shortcut-field" key={action}>
-							<span class="field-label">{SHORTCUT_LABELS[action]}</span>
+							<span class="field-label">{getShortcutLabel(language, action)}</span>
 							<input
 								type="text"
 								data-shortcut-action={action}
@@ -546,15 +550,15 @@ async function migrateFromTargetTab(mappingId: string) {
 			<section class="shortcut-settings">
 				<div class="shortcut-settings-head">
 					<div>
-						<h2>Modo lectura</h2>
+						<h2>{t('readingMode.title')}</h2>
 					</div>
 					<button id="save-reading-mode" type="button" class="primary" onClick={() => void saveReaderMode()}>
-						Guardar modo lectura
+						{t('readingMode.save')}
 					</button>
 				</div>
 				<div class="shortcut-settings-grid">
 					<label class="shortcut-field">
-						<span class="field-label">Fondo zen</span>
+						<span class="field-label">{t('readingMode.background')}</span>
 						<input
 							type="text"
 							data-reading-setting="backgroundColor"
@@ -563,7 +567,7 @@ async function migrateFromTargetTab(mappingId: string) {
 						/>
 					</label>
 					<label class="shortcut-field">
-						<span class="field-label">Ancho maximo px (0 = completo)</span>
+						<span class="field-label">{t('readingMode.maxWidth')}</span>
 						<input
 							type="text"
 							data-reading-setting="maxWidth"
@@ -572,7 +576,7 @@ async function migrateFromTargetTab(mappingId: string) {
 						/>
 					</label>
 					<label class="shortcut-field">
-						<span class="field-label">Separacion</span>
+						<span class="field-label">{t('readingMode.gap')}</span>
 						<input
 							type="text"
 							data-reading-setting="imageGap"
@@ -581,7 +585,7 @@ async function migrateFromTargetTab(mappingId: string) {
 						/>
 					</label>
 					<label class="shortcut-field">
-						<span class="field-label">Brillo</span>
+						<span class="field-label">{t('readingMode.brightness')}</span>
 						<input
 							type="text"
 							data-reading-setting="brightness"
@@ -595,14 +599,14 @@ async function migrateFromTargetTab(mappingId: string) {
 			<section class="shortcut-settings">
 				<div class="shortcut-settings-head">
 					<div>
-						<h2>Sync opcional</h2>
+						<h2>{t('sync.title')}</h2>
 					</div>
 					<button id="save-storage-sync" type="button" class="primary" onClick={() => void saveStorageSync()}>
-						Guardar sync
+						{t('sync.save')}
 					</button>
 				</div>
 				<label class="toggle-row">
-					<span class="field-label">Sincronizar mapeos y settings con Chrome Sync</span>
+					<span class="field-label">{t('sync.label')}</span>
 					<div class="toggle-switch">
 						<input
 							id="sync-storage-enabled"
@@ -617,19 +621,19 @@ async function migrateFromTargetTab(mappingId: string) {
 			{/* ── Summary ── */}
 			<section class="summary">
 				<div class="stat-card">
-					<div class="stat-label">Total mapeos</div>
+					<div class="stat-label">{t('options.totalMappings')}</div>
 					<div class="stat-value" id="mapping-count">{entries.length}</div>
 				</div>
 				<div class="stat-card">
-					<div class="stat-label">Hosts distintos</div>
+					<div class="stat-label">{t('options.distinctHosts')}</div>
 					<div class="stat-value" id="host-count">{new Set(entries.flatMap(entry => getAllMappingHosts(entry))).size}</div>
 				</div>
 				<div class="stat-card">
-					<div class="stat-label">Obras con progreso</div>
+					<div class="stat-label">{t('options.worksWithProgress')}</div>
 					<div class="stat-value" id="resume-work-count">{resumeSummary.totalWorks}</div>
 				</div>
 				<div class="stat-card">
-					<div class="stat-label">Capitulos guardados</div>
+					<div class="stat-label">{t('options.savedChapters')}</div>
 					<div class="stat-value" id="resume-entry-count">{resumeSummary.totalEntries}</div>
 				</div>
 			</section>
@@ -640,6 +644,7 @@ async function migrateFromTargetTab(mappingId: string) {
 					<MappingCard
 						key={entry.id}
 						entry={entry}
+						language={language}
 						onFieldChange={updateEntryField}
 						onSave={mappingId => void saveEntry(mappingId)}
 						onDelete={mappingId => void deleteEntry(mappingId)}
@@ -650,7 +655,7 @@ async function migrateFromTargetTab(mappingId: string) {
 				)) : (
 					<div class="empty-state">
 						<div class="empty-icon">⌨</div>
-						<p>Todavia no hay mapeos guardados. Crea uno nuevo o lanza el picker sobre otra pestana web.</p>
+						<p>{t('options.emptyMappings')}</p>
 					</div>
 				)}
 			</section>
@@ -730,7 +735,12 @@ function normalizeEntryForSave(entry: MappingEntry): MappingEntry {
 }
 
 function getErrorMessage(error: unknown) {
-	return error instanceof Error ? error.message : String(error || 'Error desconocido');
+	return error instanceof Error ? error.message : String(error || 'Unknown error');
+}
+
+function getShortcutLabel(language: Language, action: ShortcutAction) {
+	const key = `shortcuts.${action}` as Parameters<typeof getMessage>[1];
+	return getMessage(language, key);
 }
 
 async function loadGlobalShortcutSettings(): Promise<ShortcutSettings> {

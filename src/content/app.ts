@@ -4,6 +4,11 @@ import {
 	type ReaderModeSettings
 } from '../shared/readerMode';
 import {
+	getMessage,
+	normalizeLanguage,
+	type Language
+} from '../shared/i18n';
+import {
 	DEFAULT_SHORTCUTS,
 	GLOBAL_SETTINGS_KEY,
 	normalizeShortcutOverrides,
@@ -57,22 +62,6 @@ const READER_ROUTE_SEGMENTS = new Set([
 
 type LooseRecord = Record<string, any>;
 
-const globalShortcuts = [
-	{ key: '? / h', description: 'Mostrar u ocultar ayuda' },
-	{ key: 'j', description: 'Bajar casi una pantalla' },
-	{ key: 'k', description: 'Subir casi una pantalla' },
-	{ key: 'l', description: 'Retomar ultimo capitulo guardado' },
-	{ key: 'z', description: 'Alternar modo zen' },
-	{ key: 'a', description: 'Auto-scroll (scroll + next al final)' },
-	{ key: 'Espacio', description: 'Pausar / reanudar auto-scroll' },
-	{ key: '+ / -', description: 'Ajustar velocidad de auto-scroll' },
-	{ key: 'r', description: 'Restaurar posicion guardada' },
-	{ key: 'c', description: 'Abrir mapa de capitulos' },
-	{ key: 'u', description: 'Mapear esta web localmente' },
-	{ key: '1-9', description: 'Saltar al 10%-90% del capitulo' },
-	{ key: 'Escape', description: 'Cerrar overlays' }
-];
-
 const sites = {
 	tmo: {
 		id: 'tmo',
@@ -80,9 +69,9 @@ const sites = {
 		hosts: ['zonatmo.com'],
 		paths: ['/viewer/', '/news/'],
 		shortcuts: [
-			{ key: 'ArrowRight', description: 'Siguiente capitulo' },
-			{ key: 'ArrowLeft', description: 'Capitulo anterior' },
-			{ key: 'm', description: 'Ir a la pagina de la obra' }
+			{ key: 'ArrowRight', description: 'Next chapter' },
+			{ key: 'ArrowLeft', description: 'Previous chapter' },
+			{ key: 'm', description: 'Go to work page' }
 		],
 		getNextHref: () => getTMOChapterHref('col-6 col-sm-2 order-2 order-sm-3 chapter-arrow chapter-next') || getTMOMainHref(),
 		getPrevHref: () => getTMOChapterHref('col-6 col-sm-2 order-1 order-sm-1 chapter-arrow chapter-prev'),
@@ -106,9 +95,9 @@ const sites = {
 		hosts: ['leerolymp.com', 'olympusbiblioteca.com', 'www.olympusbiblioteca.com'],
 		paths: ['/capitulo/'],
 		shortcuts: [
-			{ key: 'ArrowRight', description: 'Siguiente capitulo o pagina de la serie' },
-			{ key: 'ArrowLeft', description: 'Capitulo anterior' },
-			{ key: 'm', description: 'Ir a la serie' }
+			{ key: 'ArrowRight', description: 'Next chapter or series page' },
+			{ key: 'ArrowLeft', description: 'Previous chapter' },
+			{ key: 'm', description: 'Go to series page' }
 		],
 		getNextHref: () => getNamedHref('capitulo siguiente'),
 		getPrevHref: () => getNamedHref('capitulo anterior'),
@@ -140,9 +129,9 @@ const sites = {
 		hosts: ['manhwaweb.com', 'www.manhwaweb.com'],
 		paths: ['/leer/', '/leer_18/'],
 		shortcuts: [
-			{ key: 'ArrowRight', description: 'Siguiente capitulo' },
-			{ key: 'ArrowLeft', description: 'Capitulo anterior' },
-			{ key: 'm', description: 'Ir a la pagina de la obra' }
+			{ key: 'ArrowRight', description: 'Next chapter' },
+			{ key: 'ArrowLeft', description: 'Previous chapter' },
+			{ key: 'm', description: 'Go to work page' }
 		],
 		getNextHref: () => getManhwaWebChapterHref('siguiente') || getManhwaWebMainHref(),
 		getPrevHref: () => getManhwaWebChapterHref('anterior'),
@@ -172,7 +161,8 @@ const runtime = {
 		focusMode: false,
 		autoNext: false,
 		shortcuts: normalizeShortcutSettings(null),
-		readerMode: DEFAULT_READER_MODE as ReaderModeSettings
+		readerMode: DEFAULT_READER_MODE as ReaderModeSettings,
+		language: 'es' as Language
 	},
 	nextHref: '',
 	prefetchedHref: '',
@@ -509,6 +499,7 @@ function applyStoredSettings() {
 	runtime.settings.focusMode = Boolean(siteSettings.focusMode);
 	runtime.settings.autoNext = Boolean(siteSettings.autoNext);
 	runtime.settings.readerMode = normalizeReaderModeSettings(globalSettings.readerMode);
+	runtime.settings.language = normalizeLanguage(globalSettings.language);
 	runtime.settings.shortcuts = {
 		...normalizeShortcutSettings(globalSettings.shortcuts),
 		...normalizeShortcutOverrides(siteShortcutOverrides)
@@ -619,7 +610,7 @@ function handleGlobalShortcut(key) {
 
 	if (isShortcut(key, 'chapterMap')) {
 		if (!runtime.site) {
-			showToast('No hay un lector activo en esta pagina');
+			showToast(t('content.noActiveReader'));
 			return true;
 		}
 		toggleChapterMap();
@@ -674,13 +665,13 @@ function getMappedSite(location) {
 		label: mapping.label || `Custom: ${location.host}`,
 		hosts: getAllMappingHosts(mapping),
 		paths: getAllReadingPrefixes(mapping),
-			shortcuts: [
-				{ key: 'ArrowRight', description: 'Siguiente capitulo' },
-				{ key: 'ArrowLeft', description: 'Capitulo anterior' },
-				{ key: 'm', description: 'Ir a la pagina principal' }
-			],
-			shortcutOverrides: normalizeShortcutOverrides(mapping.shortcuts),
-			getNextHref: () => resolveMappedHref(mapping.actions?.next),
+		shortcuts: [
+			{ key: 'ArrowRight', description: t('content.helpNext') },
+			{ key: 'ArrowLeft', description: t('content.helpPrev') },
+			{ key: 'm', description: t('content.helpMain') }
+		],
+		shortcutOverrides: normalizeShortcutOverrides(mapping.shortcuts),
+		getNextHref: () => resolveMappedHref(mapping.actions?.next),
 		getPrevHref: () => resolveMappedHref(mapping.actions?.prev),
 		getMainHref: () => resolveMappedHref(mapping.actions?.main),
 		getFocusCss: () => ''
@@ -700,6 +691,10 @@ function isEditableTarget(target) {
 	return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
 
+function t(key, values = {}) {
+	return getMessage(runtime.settings.language || 'es', key, values);
+}
+
 function scrollByViewport(multiplier) {
 	window.scrollBy({
 		top: Math.round(window.innerHeight * multiplier),
@@ -716,7 +711,7 @@ function jumpToPercent(percent) {
 		behavior: 'smooth'
 	});
 
-	showToast(`Salto al ${Math.round(percent * 100)}%`);
+	showToast(t('content.jumpPercent', { percent: Math.round(percent * 100) }));
 }
 
 function toggleFocusMode() {
@@ -729,7 +724,7 @@ function setFocusMode(enabled, persist) {
 
 	if (persist) {
 		saveSiteSetting('focusMode', enabled);
-		showToast(enabled ? 'Modo zen activado' : 'Modo zen desactivado');
+		showToast(enabled ? t('content.focusOn') : t('content.focusOff'));
 	}
 }
 
@@ -795,11 +790,11 @@ function toggleAutoNext() {
 	if (!nextValue) {
 		stopAutoScroll();
 		cancelAutoNext();
-		showToast('Auto-scroll desactivado');
+		showToast(t('content.autoScrollOff'));
 		return;
 	}
 
-	showToast(`Auto-scroll activado (${runtime.autoScrollSpeed} px/s). Usa +/- para ajustar velocidad.`);
+	showToast(t('content.autoScrollOn', { speed: runtime.autoScrollSpeed }));
 	startAutoScroll();
 }
 
@@ -846,7 +841,7 @@ function adjustAutoScrollSpeed(delta) {
 	if (newSpeed === runtime.autoScrollSpeed) return;
 	runtime.autoScrollSpeed = newSpeed;
 	saveSiteSetting('autoScrollSpeed', newSpeed);
-	showToast(`Velocidad: ${newSpeed} px/s`);
+	showToast(t('content.speed', { speed: newSpeed }));
 	if (runtime.autoScrollTimer) {
 		restartAutoScroll();
 	}
@@ -861,7 +856,7 @@ function normalizeAutoScrollSpeed(value) {
 function pauseAutoScroll() {
 	if (!runtime.autoScrollTimer || !runtime.settings.autoNext) return false;
 	runtime.autoScrollPaused = !runtime.autoScrollPaused;
-	showToast(runtime.autoScrollPaused ? 'Auto-scroll pausado' : 'Auto-scroll reanudado');
+	showToast(runtime.autoScrollPaused ? t('content.autoScrollPaused') : t('content.autoScrollResumed'));
 	return true;
 }
 
@@ -1077,7 +1072,7 @@ function shouldRestoreResume() {
 function restoreResumePosition(manual) {
 	const entry = runtime.persisted.resume[getResumeKey()];
 	if (!entry) {
-		if (manual) showToast('No hay posicion guardada');
+		if (manual) showToast(t('content.noSavedPosition'));
 		return false;
 	}
 
@@ -1095,7 +1090,7 @@ function restoreResumePosition(manual) {
 	if (manual || !runtime.restoreToastShown) {
 		runtime.restoreToastShown = true;
 		const percentLabel = Math.max(1, Math.round((entry.percent || 0) * 100));
-		showToast(`Posicion restaurada (${percentLabel}%)`);
+		showToast(t('content.positionRestored', { percent: percentLabel }));
 	}
 
 	return true;
@@ -1104,7 +1099,7 @@ function restoreResumePosition(manual) {
 async function resumeLastRead(manual) {
 	const target = getResumeTarget(window.location);
 	if (!target?.entry?.chapterHref) {
-		if (manual) showToast('No hay un ultimo capitulo guardado');
+		if (manual) showToast(t('content.noSavedChapter'));
 		return false;
 	}
 
@@ -1113,7 +1108,7 @@ async function resumeLastRead(manual) {
 	}
 
 	if (manual) {
-		showToast(`Retomando ${target.entry.title || 'ultimo capitulo'}`, 1200);
+		showToast(t('content.resuming', { title: target.entry.title || t('content.latestChapter') }), 1200);
 	}
 
 	return navigateToHref(target.entry.chapterHref);
@@ -1194,7 +1189,7 @@ function checkAutoNext() {
 	if (runtime.nextHref === runtime.autoNextNotifiedHref) return;
 
 	runtime.autoNextNotifiedHref = runtime.nextHref;
-	showToast('Auto-next en 2s. Pulsa a para cancelarlo.', AUTO_NEXT_DELAY_MS + 300);
+	showToast(t('content.autoNextNotice'), AUTO_NEXT_DELAY_MS + 300);
 
 	runtime.autoNextTimer = window.setTimeout(() => {
 		runtime.autoNextTimer = 0;
@@ -1208,7 +1203,7 @@ function cancelAutoNext() {
 	window.clearTimeout(runtime.autoNextTimer);
 	runtime.autoNextTimer = 0;
 	runtime.autoNextNotifiedHref = '';
-	showToast('Auto-next cancelado');
+	showToast(t('content.autoNextCancelled'));
 }
 
 function toggleShortcutHelp() {
@@ -1229,29 +1224,29 @@ function toggleShortcutHelp() {
 
 	const siteShortcuts = runtime.site
 		? [
-			...runtime.site.shortcuts,
-			{ key: 'l', description: 'Retomar ultimo capitulo guardado' },
-			{ key: 'z', description: `Modo zen ${runtime.settings.focusMode ? '(activo)' : '(apagado)'}` },
-			{ key: 'a', description: `Auto-scroll ${runtime.settings.autoNext ? '(activo ' + runtime.autoScrollSpeed + ' px/s)' : '(apagado)'}` },
-			{ key: 'Espacio', description: 'Pausar / reanudar auto-scroll' },
-			{ key: '+ / -', description: 'Ajustar velocidad' },
-			{ key: 'r', description: 'Restaurar posicion guardada' },
-			{ key: '1-9', description: 'Saltar al progreso del capitulo' }
+			...runtime.site.shortcuts.map(localizeSiteShortcut),
+			{ key: 'l', description: t('content.helpResume') },
+			{ key: 'z', description: t('content.helpZen', { state: runtime.settings.focusMode ? t('content.helpOn') : t('content.helpOff') }) },
+			{ key: 'a', description: t('content.helpAutoScroll', { state: runtime.settings.autoNext ? `${t('content.helpOn')} ${runtime.autoScrollSpeed} px/s` : t('content.helpOff') }) },
+			{ key: 'Space', description: t('content.helpPauseAutoScroll') },
+			{ key: '+ / -', description: t('content.helpAdjustSpeed') },
+			{ key: 'r', description: t('content.helpRestore') },
+			{ key: '1-9', description: t('content.helpJump') }
 		]
-		: [{ key: 'u', description: 'Mapear esta web localmente' }];
+		: [{ key: 'u', description: t('content.helpMapSite') }];
 
 	overlay.innerHTML = `
 		<div style="width:min(440px,100%); max-height:70vh; overflow:auto; background:rgba(12,12,16,0.88); color:#e8e6e1; border:1px solid rgba(255,255,255,0.06); border-left:3px solid #FFBA08; border-radius:6px; padding:18px 20px; box-shadow:0 20px 50px rgba(0,0,0,.5); font-family:'IBM Plex Mono',Consolas,monospace;">
 			<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.06);">
 				<div>
-					<div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#FFBA08; font-family:'Chakra Petch',sans-serif;">Atajos</div>
+					<div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#FFBA08; font-family:'Chakra Petch',sans-serif;">${t('content.helpTitle')}</div>
 					<div style="font-size:17px; font-weight:700; font-family:'Chakra Petch',sans-serif; margin-top:3px;">${runtime.site?.label || window.location.host}</div>
 				</div>
 				<button type="button" data-close-help="true" style="appearance:none; background:rgba(255,255,255,0.06); color:#7a787f; border:1px solid rgba(255,255,255,0.06); border-radius:4px; width:30px; height:30px; cursor:pointer; font-size:14px; line-height:1; transition:color .15s;">×</button>
 			</div>
 			<div style="display:grid; gap:12px;">
-				${renderShortcutSection('Generales', globalShortcuts)}
-				${renderShortcutSection(runtime.site ? 'En esta web' : 'Mapeo local', siteShortcuts)}
+				${renderShortcutSection(t('content.helpGeneral'), getGlobalShortcuts())}
+				${renderShortcutSection(runtime.site ? t('content.helpSite') : t('content.helpMapping'), siteShortcuts)}
 			</div>
 		</div>
 	`;
@@ -1262,6 +1257,37 @@ function toggleShortcutHelp() {
 	});
 
 	document.body.appendChild(overlay);
+}
+
+function getGlobalShortcuts() {
+	return [
+		{ key: '? / h', description: t('content.helpToggle') },
+		{ key: 'j', description: t('content.helpScrollDown') },
+		{ key: 'k', description: t('content.helpScrollUp') },
+		{ key: 'l', description: t('content.helpResume') },
+		{ key: 'z', description: t('content.helpZen', { state: runtime.settings.focusMode ? t('content.helpOn') : t('content.helpOff') }) },
+		{ key: 'a', description: t('content.helpAutoScroll', { state: runtime.settings.autoNext ? `${t('content.helpOn')} ${runtime.autoScrollSpeed} px/s` : t('content.helpOff') }) },
+		{ key: 'Space', description: t('content.helpPauseAutoScroll') },
+		{ key: '+ / -', description: t('content.helpAdjustSpeed') },
+		{ key: 'r', description: t('content.helpRestore') },
+		{ key: 'c', description: t('content.helpChapterMap') },
+		{ key: 'u', description: t('content.helpMapSite') },
+		{ key: '1-9', description: t('content.helpJump') },
+		{ key: 'Escape', description: t('content.helpClose') }
+	];
+}
+
+function localizeSiteShortcut(shortcut) {
+	const descriptionByKey = {
+		ArrowRight: t('content.helpNext'),
+		ArrowLeft: t('content.helpPrev'),
+		m: t('content.helpMain')
+	};
+
+	return {
+		...shortcut,
+		description: descriptionByKey[shortcut.key] || shortcut.description
+	};
 }
 
 function closeShortcutHelp() {
@@ -1283,9 +1309,9 @@ function openMapper() {
 
 	const existing = getHostUserMappings(window.location.host);
 	const steps = [
-		{ key: 'next', label: 'Haz click en el boton o enlace de siguiente capitulo', required: true },
-		{ key: 'prev', label: 'Haz click en el boton o enlace de capitulo anterior', required: false },
-		{ key: 'main', label: 'Haz click en el enlace de la obra o lista de capitulos', required: true }
+		{ key: 'next', label: t('content.mapperNext'), required: true },
+		{ key: 'prev', label: t('content.mapperPrev'), required: false },
+		{ key: 'main', label: t('content.mapperMain'), required: true }
 	];
 
 	runtime.mapper = {
@@ -1314,7 +1340,7 @@ function openMapper() {
 					<span style="background:#e8e6e1; border-radius:1px;"></span><span style="background:#e8e6e1; border-radius:1px;"></span>
 				</div>
 				<div>
-					<div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#FFBA08; font-family:'Chakra Petch',sans-serif;">Mapper</div>
+					<div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#FFBA08; font-family:'Chakra Petch',sans-serif;">${t('content.mapperTitle')}</div>
 					<div style="font-size:14px; font-weight:700; font-family:'Chakra Petch',sans-serif; margin-top:2px;">${window.location.host}</div>
 				</div>
 			</div>
@@ -1323,10 +1349,10 @@ function openMapper() {
 		<div style="padding:14px 16px;">
 			<div data-mapper-status="true" style="font-size:12px; color:#e8e6e1; line-height:1.55;"></div>
 			<div style="display:flex; gap:8px; margin-top:12px;">
-				<button type="button" data-mapper-skip="true" style="appearance:none; background:rgba(255,255,255,0.06); color:#e8e6e1; border:1px solid rgba(255,255,255,0.06); border-bottom-width:2px; border-bottom-color:rgba(0,0,0,0.3); border-radius:4px; padding:8px 12px; cursor:pointer; font:500 12px/1 'IBM Plex Mono',monospace;">Saltar paso</button>
-				<button type="button" data-mapper-save="true" style="appearance:none; background:linear-gradient(180deg,#d49b00,#b8860b); color:#0c0c10; border:1px solid rgba(0,0,0,0.2); border-bottom-width:2px; border-bottom-color:rgba(0,0,0,0.5); border-radius:4px; padding:8px 12px; cursor:pointer; font:700 12px/1 'IBM Plex Mono',monospace;">Guardar ahora</button>
+				<button type="button" data-mapper-skip="true" style="appearance:none; background:rgba(255,255,255,0.06); color:#e8e6e1; border:1px solid rgba(255,255,255,0.06); border-bottom-width:2px; border-bottom-color:rgba(0,0,0,0.3); border-radius:4px; padding:8px 12px; cursor:pointer; font:500 12px/1 'IBM Plex Mono',monospace;">${t('content.mapperSkip')}</button>
+				<button type="button" data-mapper-save="true" style="appearance:none; background:linear-gradient(180deg,#d49b00,#b8860b); color:#0c0c10; border:1px solid rgba(0,0,0,0.2); border-bottom-width:2px; border-bottom-color:rgba(0,0,0,0.5); border-radius:4px; padding:8px 12px; cursor:pointer; font:700 12px/1 'IBM Plex Mono',monospace;">${t('content.mapperSaveNow')}</button>
 			</div>
-			${existing.length ? `<div style="margin-top:10px; font-size:11px; color:#7a787f;">Ya existen ${existing.length} mapeos para este host.</div>` : ''}
+			${existing.length ? `<div style="margin-top:10px; font-size:11px; color:#7a787f;">${t('content.mapperExisting', { count: existing.length })}</div>` : ''}
 		</div>
 	`;
 
@@ -1406,12 +1432,12 @@ function handleMapperDocumentClick(event) {
 
 	const descriptor = buildMappedActionDescriptor(target);
 	if (!descriptor) {
-		showToast('No pude generar un selector estable para ese elemento');
+		showToast(t('content.mapperNoSelector'));
 		return;
 	}
 
 	runtime.mapper.selections[step.key] = descriptor;
-	showToast(`Mapeado: ${step.key}`);
+	showToast(t('content.mapperStepMapped', { step: step.key }));
 	advanceMapperStep();
 }
 
@@ -1428,7 +1454,7 @@ function renderMapperStatus() {
 
 	const currentStep = runtime.mapper.steps[runtime.mapper.stepIndex];
 	if (!currentStep) {
-		status.innerHTML = '<span style="color:#FFBA08;">Pasos completados.</span> Pulsa <strong>Guardar ahora</strong> para activar el mapeo.';
+		status.innerHTML = `<span style="color:#FFBA08;">${t('content.mapperCompleted')}</span> ${t('content.mapperSaveHint')}`;
 		return;
 	}
 
@@ -1439,8 +1465,8 @@ function renderMapperStatus() {
 
 	status.innerHTML = `
 		<div style="font-weight:500;">${currentStep.label}</div>
-		<div style="margin-top:6px; font-size:11px; color:#7a787f;">Click sobre la pagina para capturar. Usa "Saltar paso" si no aplica.</div>
-		${completed ? `<div style="margin-top:8px; font-size:11px; color:#7a787f;">Capturados:<br>${completed}</div>` : ''}
+		<div style="margin-top:6px; font-size:11px; color:#7a787f;">${t('content.mapperCaptureHint')}</div>
+		${completed ? `<div style="margin-top:8px; font-size:11px; color:#7a787f;">${t('content.mapperCaptured')}<br>${completed}</div>` : ''}
 	`;
 }
 
@@ -1449,12 +1475,12 @@ async function finishMapper() {
 
 	const actions = runtime.mapper.selections;
 	if (!actions.next || !actions.main) {
-		showToast('Necesito al menos siguiente capitulo y pagina principal');
+		showToast(t('content.mapperNeedRequired'));
 		return;
 	}
 
 	const readingPrefix = inferReadingPrefix(actions);
-	const label = prompt('Nombre corto para este mapeo:', window.location.host) || window.location.host;
+	const label = prompt(t('content.mapperPrompt'), window.location.host) || window.location.host;
 
 	const mappingEntry = {
 		id: buildMappingId(window.location.host, readingPrefix),
@@ -1472,7 +1498,7 @@ async function finishMapper() {
 	await upsertUserMapping(mappingEntry);
 	closeMapper();
 	setRuntimeSite(getActiveSite(window.location));
-	showToast(`Web mapeada con prefijo ${readingPrefix}`);
+	showToast(t('content.mapperSaved', { prefix: readingPrefix }));
 }
 
 function closeMapper() {
@@ -1487,7 +1513,7 @@ function closeMapper() {
 }
 
 function notifyNoActiveReader() {
-	showToast('No hay un lector activo en esta pagina');
+	showToast(t('content.noActiveReader'));
 	return true;
 }
 
@@ -1502,7 +1528,7 @@ async function toggleCurrentMappingEnabled() {
 	});
 
 	setRuntimeSite(getActiveSite(window.location));
-	showToast(nextEnabled ? 'Sitio activado' : 'Sitio desactivado');
+	showToast(nextEnabled ? t('content.siteEnabled') : t('content.siteDisabled'));
 	return true;
 }
 
@@ -1862,7 +1888,7 @@ function toggleChapterMap() {
 function openChapterMap() {
 	const mainHref = getAbsoluteHref(runtime.site.getMainHref?.());
 	if (!mainHref) {
-		showToast('Todavia no encuentro la pagina de la obra');
+		showToast(t('content.noMainPage'));
 		return;
 	}
 
@@ -1881,16 +1907,16 @@ function openChapterMap() {
 		<div style="width:min(420px,100%); height:100vh; overflow:hidden; background:rgba(12,12,16,0.92); color:#e8e6e1; border-left:3px solid #FFBA08; box-shadow:-20px 0 50px rgba(0,0,0,.5); font-family:'IBM Plex Mono',Consolas,monospace; display:grid; grid-template-rows:auto auto minmax(0,1fr); gap:0;">
 			<div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px 20px; border-bottom:1px solid rgba(255,255,255,0.06);">
 				<div>
-					<div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#FFBA08; font-family:'Chakra Petch',sans-serif;">Capitulos</div>
+					<div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#FFBA08; font-family:'Chakra Petch',sans-serif;">${t('content.chapterMapTitle')}</div>
 					<div style="font-size:16px; font-weight:700; font-family:'Chakra Petch',sans-serif; margin-top:3px;">${runtime.site.label}</div>
 				</div>
 				<button type="button" data-close-chapter-map="true" style="appearance:none; background:rgba(255,255,255,0.06); color:#7a787f; border:1px solid rgba(255,255,255,0.06); border-radius:4px; width:30px; height:30px; cursor:pointer; font-size:14px; line-height:1;">×</button>
 			</div>
 			<div style="padding:12px 20px;">
-				<input type="text" data-chapter-search="true" placeholder="Buscar capitulo..." style="width:100%; background:rgba(255,255,255,0.04); color:#e8e6e1; border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:10px 12px; outline:none; font:13px/1.4 'IBM Plex Mono',monospace; transition:border-color .15s;">
+				<input type="text" data-chapter-search="true" placeholder="${t('content.chapterSearch')}" style="width:100%; background:rgba(255,255,255,0.04); color:#e8e6e1; border:1px solid rgba(255,255,255,0.06); border-radius:4px; padding:10px 12px; outline:none; font:13px/1.4 'IBM Plex Mono',monospace; transition:border-color .15s;">
 			</div>
 			<div data-chapter-results="true" style="overflow:auto; display:grid; gap:6px; align-content:start; padding:4px 20px 20px;">
-				<div style="font-size:12px; color:#7a787f;">Cargando capitulos...</div>
+				<div style="font-size:12px; color:#7a787f;">${t('content.chapterLoading')}</div>
 			</div>
 		</div>
 	`;
@@ -1957,7 +1983,7 @@ async function fetchChapterMap(mainHref) {
 		storage.set({ [STORAGE_KEYS.chapterCache]: runtime.persisted.chapterCache });
 		return chapters;
 	} catch {
-		showToast('No pude cargar la lista de capitulos');
+		showToast(t('content.chapterLoadFailed'));
 		return [];
 	}
 }
@@ -1991,7 +2017,7 @@ function renderChapterResults(overlay, chapters) {
 	if (!results) return;
 
 	if (!chapters.length) {
-		results.innerHTML = '<div style="font-size:12px; color:#7a787f;">No encontre capitulos para mostrar.</div>';
+		results.innerHTML = `<div style="font-size:12px; color:#7a787f;">${t('content.chapterNone')}</div>`;
 		return;
 	}
 

@@ -47,7 +47,7 @@ async function waitForReaderStatus(tabId: number, retries = 6): Promise<ReaderSt
 		await delay(150 * (attempt + 1));
 	}
 
-	throw lastError || new Error('No pude confirmar el estado del lector.');
+	throw lastError || new Error('Could not confirm the reader state.');
 }
 
 function delay(ms: number): Promise<void> {

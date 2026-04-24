@@ -37,24 +37,6 @@ export const DEFAULT_SHORTCUTS: ShortcutSettings = {
 	help: '?'
 };
 
-export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
-	next: 'Siguiente capitulo',
-	prev: 'Capitulo anterior',
-	main: 'Pagina de la obra',
-	scrollDown: 'Scroll abajo',
-	scrollUp: 'Scroll arriba',
-	resume: 'Retomar lectura',
-	restore: 'Restaurar posicion',
-	focus: 'Modo zen',
-	autoNext: 'Auto-scroll',
-	pauseAutoScroll: 'Pausar auto-scroll',
-	speedUp: 'Subir velocidad',
-	speedDown: 'Bajar velocidad',
-	chapterMap: 'Mapa de capitulos',
-	mapper: 'Picker visual',
-	help: 'Ayuda'
-};
-
 export const SHORTCUT_ACTIONS = Object.keys(DEFAULT_SHORTCUTS) as ShortcutAction[];
 
 export function normalizeShortcutSettings(value: unknown): ShortcutSettings {
