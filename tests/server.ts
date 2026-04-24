@@ -1,6 +1,6 @@
-import fs from 'fs';
-import http from 'http';
-import path from 'path';
+import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
 
 const ROOT = path.join(__dirname, 'fixtures');
 const PORT = Number(process.env.PORT || 4173);

@@ -7,6 +7,7 @@
   "description": "Browser extension for chapter navigation, reading progress, URL repair, site mapping and focused manga reading.",
   "scripts": {
     "build": "bun build src/entries/background.ts --outfile background.js --target browser --format iife && bun build src/entries/content.ts --outfile content.js --target browser --format iife && bun build src/entries/options.ts --outfile options.js --target browser --format iife && bun build src/entries/popup.ts --outfile popup.js --target browser --format iife",
+    "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "test:e2e": "bun run build && playwright test",
     "test:e2e:ci": "bun run build && playwright test",
@@ -17,6 +18,7 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.13",
     "@playwright/test": "^1.54.2",
     "@types/chrome": "^0.1.24",
     "@types/node": "^24.6.0",

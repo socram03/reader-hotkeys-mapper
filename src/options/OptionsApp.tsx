@@ -29,7 +29,6 @@ import {
 	normalizeReaderModeSettings,
 	normalizeShortcutOverrides,
 	normalizeShortcutSettings,
-	normalizeShortcutKeyInput,
 	normalizeUserMappings,
 	removeMappingEntry,
 	saveUserMappings,
@@ -41,6 +40,7 @@ import {
 	upsertMappingEntry
 } from '../shared';
 import { MappingCard } from './MappingCard';
+import { ShortcutCaptureInput } from './ShortcutCaptureInput';
 import type { Language, ReaderModeSettings, ShortcutAction, ShortcutSettings, StorageMode } from '../shared';
 import type { MappingEntry, MappingState } from './types';
 
@@ -534,13 +534,14 @@ async function migrateFromTargetTab(mappingId: string) {
 				</div>
 				<div class="shortcut-settings-grid">
 					{SHORTCUT_ACTIONS.map(action => (
-						<label class="shortcut-field" key={action}>
+						<label class="shortcut-field" key={action} htmlFor={`shortcut-${action}`}>
 							<span class="field-label">{getShortcutLabel(language, action)}</span>
-							<input
-								type="text"
-								data-shortcut-action={action}
-								value={formatShortcutKey(normalizeShortcutKeyInput(shortcutSettings[action]))}
-								onInput={event => updateShortcut(action, event.currentTarget.value)}
+							<ShortcutCaptureInput
+								id={`shortcut-${action}`}
+								dataAttribute="data-shortcut-action"
+								action={action}
+								value={shortcutSettings[action]}
+								onChange={value => updateShortcut(action, value)}
 							/>
 						</label>
 					))}

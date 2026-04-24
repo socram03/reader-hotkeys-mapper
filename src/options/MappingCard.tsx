@@ -1,8 +1,9 @@
 import type { JSX } from 'preact';
 import { useState } from 'preact/hooks';
-import { formatShortcutKey, getMessage, normalizeShortcutKeyInput } from '../shared';
+import { getMessage } from '../shared';
 import type { Language, ShortcutAction } from '../shared';
 import type { MappingEntry } from './types';
+import { ShortcutCaptureInput } from './ShortcutCaptureInput';
 
 type MappingCardProps = {
 	entry: MappingEntry;
@@ -203,12 +204,12 @@ function ShortcutField(props: {
 
 	return (
 		<Field label={getShortcutLabel(props.language, props.action)}>
-			<input
-				type="text"
-				data-domain-shortcut-action={props.action}
-				value={value ? formatShortcutKey(normalizeShortcutKeyInput(value)) : ''}
+			<ShortcutCaptureInput
+				dataAttribute="data-domain-shortcut-action"
+				action={props.action}
+				value={value}
 				placeholder={getMessage(props.language, 'mapping.useGlobal')}
-				onInput={handleText(props.entry.id, `shortcuts.${props.action}`, props.onFieldChange)}
+				onChange={shortcut => props.onFieldChange(props.entry.id, `shortcuts.${props.action}`, shortcut)}
 			/>
 		</Field>
 	);

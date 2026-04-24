@@ -1,6 +1,6 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { chromium, expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 const EXTENSION_PATH = path.resolve(__dirname, '..');
@@ -230,7 +230,9 @@ test.describe.serial('ChapterPilot extension', () => {
 		await expect(optionsPage.locator('.notice')).toContainText('Anterior OK');
 		await expect(optionsPage.locator('.notice')).toContainText('Principal OK');
 
-		await optionsPage.fill('[data-shortcut-action="next"]', 'n');
+		await optionsPage.click('[data-shortcut-action="next"]');
+		await optionsPage.keyboard.press('Control+ArrowRight');
+		await expect(optionsPage.locator('[data-shortcut-action="next"]')).toHaveValue('Ctrl+ArrowRight');
 		await optionsPage.click('#save-shortcuts');
 		await expect(optionsPage.locator('.notice')).toContainText('Atajos guardados');
 
@@ -239,15 +241,19 @@ test.describe.serial('ChapterPilot extension', () => {
 		await waitForExtensionReady(readerPage);
 		await readerPage.keyboard.press('ArrowRight');
 		await expect(readerPage).toHaveURL(/reader-1\.html$/);
-		await readerPage.keyboard.press('n');
+		await readerPage.keyboard.press('Control+ArrowRight');
 		await expect(readerPage).toHaveURL(/reader-2\.html$/);
 
 		await optionsPage.bringToFront();
-		await optionsPage.fill('[data-shortcut-action="next"]', 'ArrowRight');
+		await optionsPage.click('[data-shortcut-action="next"]');
+		await optionsPage.keyboard.press('ArrowRight');
+		await expect(optionsPage.locator('[data-shortcut-action="next"]')).toHaveValue('ArrowRight');
 		await optionsPage.click('#save-shortcuts');
 		await expect(optionsPage.locator('.notice')).toContainText('Atajos guardados');
 
-		await optionsPage.fill('[data-domain-shortcut-action="next"]', 'x');
+		await optionsPage.click('[data-domain-shortcut-action="next"]');
+		await optionsPage.keyboard.press('Alt+X');
+		await expect(optionsPage.locator('[data-domain-shortcut-action="next"]')).toHaveValue('Alt+X');
 		await optionsPage.click('.card-footer [data-action="save"]');
 		await expect(optionsPage.locator('.notice')).toContainText('Guardado');
 
@@ -256,11 +262,15 @@ test.describe.serial('ChapterPilot extension', () => {
 		await waitForExtensionReady(readerPage);
 		await readerPage.keyboard.press('ArrowRight');
 		await expect(readerPage).toHaveURL(/reader-1\.html$/);
-		await readerPage.keyboard.press('x');
+		await readerPage.keyboard.press('Alt+X');
 		await expect(readerPage).toHaveURL(/reader-2\.html$/);
 
 		await optionsPage.bringToFront();
-		await optionsPage.fill('[data-domain-shortcut-action="next"]', '');
+		await optionsPage.click('[data-domain-shortcut-action="next"]');
+		await optionsPage.keyboard.press('Escape');
+		await expect(optionsPage.locator('[data-domain-shortcut-action="next"]')).toHaveValue('Alt+X');
+		await optionsPage.keyboard.press('Escape');
+		await expect(optionsPage.locator('[data-domain-shortcut-action="next"]')).toHaveValue('');
 		await optionsPage.click('.card-footer [data-action="save"]');
 		await expect(optionsPage.locator('.notice')).toContainText('Guardado');
 
@@ -367,7 +377,7 @@ test.describe.serial('ChapterPilot extension', () => {
 		await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
 		await optionsPage.click('#start-picker');
 
-		const targetTabId = await getTargetTabId(optionsPage);
+		await getTargetTabId(optionsPage);
 		await spaPage.bringToFront();
 		await expect(spaPage.locator('[data-mapper-save="true"]')).toBeVisible();
 

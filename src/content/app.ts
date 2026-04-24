@@ -13,7 +13,8 @@ import {
 	GLOBAL_SETTINGS_KEY,
 	normalizeShortcutOverrides,
 	normalizeShortcutKeyInput,
-	normalizeShortcutSettings
+	normalizeShortcutSettings,
+	shortcutFromKeyboardEvent
 } from '../shared/shortcuts';
 
 const STORAGE_KEYS = {
@@ -510,9 +511,8 @@ function applyStoredSettings() {
 }
 
 function handleKeydown(event) {
-	if (event.ctrlKey || event.metaKey || event.altKey) return;
-
 	const key = normalizeKey(event.key);
+	const shortcut = shortcutFromKeyboardEvent(event);
 	if (isEditableTarget(event.target)) {
 		if (key === 'Escape' && (closeMapper() || closeChapterMap() || closeShortcutHelp())) {
 			event.preventDefault();
@@ -520,27 +520,27 @@ function handleKeydown(event) {
 		return;
 	}
 
-	if (handleGlobalShortcut(key)) {
+	if (handleGlobalShortcut(key, shortcut)) {
 		event.preventDefault();
 		return;
 	}
 
 	if (!runtime.site) return;
 
-	if (/^[1-9]$/.test(key)) {
+	if (/^[1-9]$/.test(key) && shortcut === key) {
 		event.preventDefault();
 		jumpToPercent(Number(key) / 10);
 		return;
 	}
 
-	const action = getSiteShortcutAction(key);
+	const action = getSiteShortcutAction(shortcut);
 	if (!action) return;
 
 	event.preventDefault();
 	action();
 }
 
-function handleGlobalShortcut(key) {
+function handleGlobalShortcut(key, shortcut) {
 	const hasOverlay = Boolean(
 		document.getElementById(MAPPER_OVERLAY_ID)
 		|| document.getElementById(HELP_OVERLAY_ID)
@@ -549,7 +549,7 @@ function handleGlobalShortcut(key) {
 
 	if (!runtime.site && !hasOverlay) return false;
 
-	if (isShortcut(key, 'help')) {
+	if (isShortcut(shortcut, 'help')) {
 		if (!runtime.site) return false;
 		toggleShortcutHelp();
 		return true;
@@ -559,58 +559,58 @@ function handleGlobalShortcut(key) {
 		return closeMapper() || closeChapterMap() || closeShortcutHelp();
 	}
 
-	if (isShortcut(key, 'scrollDown')) {
+	if (isShortcut(shortcut, 'scrollDown')) {
 		if (!runtime.site) return false;
 		scrollByViewport(0.85);
 		return true;
 	}
 
-	if (isShortcut(key, 'scrollUp')) {
+	if (isShortcut(shortcut, 'scrollUp')) {
 		if (!runtime.site) return false;
 		scrollByViewport(-0.85);
 		return true;
 	}
 
-	if (isShortcut(key, 'resume')) {
+	if (isShortcut(shortcut, 'resume')) {
 		if (!runtime.site) return notifyNoActiveReader();
 		return resumeLastRead(true);
 	}
 
-	if (isShortcut(key, 'focus')) {
+	if (isShortcut(shortcut, 'focus')) {
 		if (!runtime.site) return notifyNoActiveReader();
 		toggleFocusMode();
 		return true;
 	}
 
-	if (isShortcut(key, 'autoNext')) {
+	if (isShortcut(shortcut, 'autoNext')) {
 		if (!runtime.site) return notifyNoActiveReader();
 		toggleAutoNext();
 		return true;
 	}
 
-	if (isShortcut(key, 'pauseAutoScroll')) {
+	if (isShortcut(shortcut, 'pauseAutoScroll')) {
 		return pauseAutoScroll();
 	}
 
-	if (isShortcut(key, 'speedUp')) {
+	if (isShortcut(shortcut, 'speedUp')) {
 		if (!runtime.settings.autoNext) return false;
 		adjustAutoScrollSpeed(20);
 		return true;
 	}
 
-	if (isShortcut(key, 'speedDown')) {
+	if (isShortcut(shortcut, 'speedDown')) {
 		if (!runtime.settings.autoNext) return false;
 		adjustAutoScrollSpeed(-20);
 		return true;
 	}
 
-	if (isShortcut(key, 'restore')) {
+	if (isShortcut(shortcut, 'restore')) {
 		if (!runtime.site) return notifyNoActiveReader();
 		restoreResumePosition(true);
 		return true;
 	}
 
-	if (isShortcut(key, 'chapterMap')) {
+	if (isShortcut(shortcut, 'chapterMap')) {
 		if (!runtime.site) {
 			showToast(t('content.noActiveReader'));
 			return true;
@@ -619,7 +619,7 @@ function handleGlobalShortcut(key) {
 		return true;
 	}
 
-	if (isShortcut(key, 'mapper')) {
+	if (isShortcut(shortcut, 'mapper')) {
 		if (!runtime.site) return false;
 		toggleMapper();
 		return true;
@@ -1920,9 +1920,7 @@ function resolveMappedHref(action) {
 				if (!element) continue;
 				const href = element.getAttribute?.('href');
 				if (href) return href;
-			} catch {
-				continue;
-			}
+			} catch {}
 		}
 	}
 

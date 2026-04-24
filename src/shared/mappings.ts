@@ -2,7 +2,7 @@ import { extensionStorage } from './extensionStorage';
 import { normalizeShortcutOverrides } from './shortcuts';
 import { STORAGE_KEYS } from './storageKeys';
 import { listToMultilineText, multilineTextToList, toLineArray, uniqueStrings } from './textLists';
-import type { MappingAction, MappingActions, MappingEntry, MappingState } from './types';
+import type { MappingAction, MappingEntry, MappingState } from './types';
 
 type VersionedMappingState = {
 	version: number;
