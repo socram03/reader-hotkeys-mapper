@@ -265,7 +265,8 @@ function getReaderStatus() {
 		),
 		settings: {
 			focusMode: runtime.settings.focusMode,
-			autoNext: runtime.settings.autoNext
+			autoNext: runtime.settings.autoNext,
+			autoScrollSpeed: runtime.autoScrollSpeed
 		},
 		overlays: {
 			help: Boolean(document.getElementById(HELP_OVERLAY_ID)),
@@ -413,6 +414,7 @@ function deactivateSiteFeatures() {
 	document.body?.classList.remove(FOCUS_CLASS);
 	runtime.settings.focusMode = false;
 	runtime.settings.autoNext = false;
+	runtime.autoScrollSpeed = AUTO_SCROLL_PX_PER_SECOND;
 	runtime.nextHref = '';
 	runtime.prefetchedHref = '';
 	runtime.autoNextNotifiedHref = '';
@@ -441,6 +443,7 @@ function applyStoredSettings() {
 	const siteSettings = runtime.persisted.settings[runtime.site.id] || {};
 	runtime.settings.focusMode = Boolean(siteSettings.focusMode);
 	runtime.settings.autoNext = Boolean(siteSettings.autoNext);
+	runtime.autoScrollSpeed = normalizeAutoScrollSpeed(siteSettings.autoScrollSpeed);
 }
 
 function handleKeydown(event) {
@@ -734,10 +737,17 @@ function adjustAutoScrollSpeed(delta) {
 	const newSpeed = Math.max(20, Math.min(600, runtime.autoScrollSpeed + delta));
 	if (newSpeed === runtime.autoScrollSpeed) return;
 	runtime.autoScrollSpeed = newSpeed;
+	saveSiteSetting('autoScrollSpeed', newSpeed);
 	showToast(`Velocidad: ${newSpeed} px/s`);
 	if (runtime.autoScrollTimer) {
 		restartAutoScroll();
 	}
+}
+
+function normalizeAutoScrollSpeed(value) {
+	const speed = Number(value);
+	if (!Number.isFinite(speed)) return AUTO_SCROLL_PX_PER_SECOND;
+	return Math.max(20, Math.min(600, Math.round(speed)));
 }
 
 function pauseAutoScroll() {

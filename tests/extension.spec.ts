@@ -83,6 +83,18 @@ test.describe.serial('Reader Hotkeys extension', () => {
 		await readerPage.keyboard.press('z');
 		await expect(readerPage.locator('header')).toBeHidden();
 
+		await readerPage.keyboard.press('a');
+		await readerPage.keyboard.press('+');
+		await readerPage.reload();
+		await waitForExtensionReady(readerPage);
+
+		const autoScrollPopup = await context.newPage();
+		await autoScrollPopup.goto(`chrome-extension://${extensionId}/popup.html`);
+		await expect(autoScrollPopup.locator('.status-card')).toContainText('140 px/s');
+		await autoScrollPopup.close();
+		await readerPage.bringToFront();
+		await readerPage.keyboard.press('a');
+
 		await readerPage.evaluate(() => {
 			window.scrollTo({ top: 900, behavior: 'auto' });
 		});

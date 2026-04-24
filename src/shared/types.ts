@@ -88,6 +88,7 @@ export type ReaderStatus = {
 	settings?: {
 		focusMode?: boolean;
 		autoNext?: boolean;
+		autoScrollSpeed?: number;
 	};
 	[key: string]: unknown;
 };

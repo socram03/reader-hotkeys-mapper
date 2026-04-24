@@ -71,6 +71,7 @@ export function PopupApp() {
 	const matchedMappingEnabled = status?.matchedMappingEnabled !== false;
 	const zenActive = Boolean(status?.settings?.focusMode);
 	const autoNextActive = Boolean(status?.settings?.autoNext);
+	const autoScrollSpeed = Number(status?.settings?.autoScrollSpeed) || 0;
 	const hasLastRead = Boolean(status?.lastReadAvailable && status?.lastReadHref);
 	const lastReadLabel = status?.lastReadTitle || 'Sin progreso guardado';
 
@@ -130,6 +131,7 @@ export function PopupApp() {
 							<span class="meta-label">Modos</span>
 							<span class="meta-value">
 								Zen {zenActive ? '●' : '○'} &nbsp; Scroll {autoNextActive ? '●' : '○'}
+								{autoScrollSpeed ? ` · ${autoScrollSpeed} px/s` : ''}
 							</span>
 						</div>
 						<div class="meta-row">
