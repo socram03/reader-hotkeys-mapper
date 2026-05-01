@@ -3,6 +3,8 @@ import {
 	ensureReaderScript,
 	getBestTargetTab,
 	getMessage,
+	isContinueReadingEntry,
+	loadHistorySettings,
 	loadLanguage,
 	loadLatestReadExport,
 	loadPrivacySettings,
@@ -48,8 +50,8 @@ export function PopupApp() {
 	}
 
 	async function refreshContinueReading() {
-		const latestReads = await loadLatestReadExport();
-		setContinueReading(latestReads.entries.slice(0, 1));
+		const [latestReads, historySettings] = await Promise.all([loadLatestReadExport(), loadHistorySettings()]);
+		setContinueReading(latestReads.entries.filter(entry => isContinueReadingEntry(entry, historySettings)).slice(0, 1));
 	}
 
 	async function runTabAction(type: string, options?: { closeAfter?: boolean }) {
@@ -140,8 +142,22 @@ export function PopupApp() {
 
 			{/* ── Status ── */}
 			{error ? (
-				<div class="error-msg">{error}</div>
-			) : (
+				<div class="modal-backdrop" data-feedback-modal="true" onClick={() => setError('')}>
+					<section class="feedback-modal" role="alertdialog" aria-modal="true" aria-labelledby="feedback-modal-title" onClick={event => event.stopPropagation()}>
+						<div class="feedback-modal-head">
+							<div>
+								<p class="eyebrow">{t('common.errorUnknown')}</p>
+								<h2 id="feedback-modal-title">{t('popup.control')}</h2>
+							</div>
+							<button type="button" class="btn-options" data-feedback-close="true" onClick={() => setError('')}>
+								{t('options.validateModalClose')}
+							</button>
+						</div>
+						<p>{error}</p>
+					</section>
+				</div>
+			) : null}
+			{!error ? (
 				<section class="status-card">
 					<div class="status-header">
 						<div>
@@ -177,7 +193,7 @@ export function PopupApp() {
 						</div>
 					</div>
 				</section>
-			)}
+				) : null}
 			{notice ? <div class="popup-notice">{notice}</div> : null}
 
 			{/* ── Actions ── */}

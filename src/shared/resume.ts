@@ -13,6 +13,10 @@ export async function loadLatestReadExport(): Promise<LatestReadExport> {
 	return buildLatestReadExport(await loadResumeEntries());
 }
 
+export async function loadReadingHistoryExport(): Promise<LatestReadExport> {
+	return buildReadingHistoryExport(await loadResumeEntries());
+}
+
 export async function removeLatestReadWork(workId: string): Promise<LatestReadExport> {
 	const entries = await loadResumeEntries();
 	const retainedEntries = entries.filter(entry => getResumeWorkId(entry) !== workId);
@@ -99,6 +103,31 @@ export function buildLatestReadExport(entries: ResumeEntry[]): LatestReadExport 
 	};
 }
 
+export function buildReadingHistoryExport(entries: ResumeEntry[]): LatestReadExport {
+	const normalizedEntries = normalizeResumeEntries(entries).filter(isMeaningfulResumeEntry);
+	const chapterEntries = normalizedEntries.filter(entry => normalizeResumeEntryType(entry.entryType) === 'chapter');
+	const trackedEntriesByWork = getTrackedEntriesByWork(chapterEntries);
+	const historyEntries = (chapterEntries.length ? chapterEntries : normalizedEntries)
+		.map(entry => {
+			const workId = getResumeWorkId(entry);
+			return resumeEntryToLatestReadExportEntry(
+				workId,
+				entry,
+				trackedEntriesByWork.get(workId) || 1
+			);
+		})
+		.sort((left, right) => right.updatedAt - left.updatedAt);
+	const exportedAt = Date.now();
+
+	return {
+		exportedAt,
+		exportedAtIso: new Date(exportedAt).toISOString(),
+		totalWorks: new Set(historyEntries.map(entry => entry.workId)).size,
+		totalEntries: historyEntries.length,
+		entries: historyEntries
+	};
+}
+
 function normalizeResumeEntries(rawResumeState: unknown): ResumeEntry[] {
 	if (Array.isArray(rawResumeState)) {
 		return rawResumeState
@@ -148,6 +177,34 @@ function getResumeWorkId(entry: ResumeEntry): string {
 	if (entry.mainHref) return `href:${entry.mainHref}`;
 	if (entry.workKey) return `work:${entry.siteId || entry.host}:${entry.workKey}`;
 	return `chapter:${entry.chapterHref}`;
+}
+
+function getTrackedEntriesByWork(entries: ResumeEntry[]): Map<string, number> {
+	const trackedEntriesByWork = new Map<string, number>();
+	entries.forEach(entry => {
+		const workId = getResumeWorkId(entry);
+		trackedEntriesByWork.set(workId, (trackedEntriesByWork.get(workId) || 0) + 1);
+	});
+	return trackedEntriesByWork;
+}
+
+function resumeEntryToLatestReadExportEntry(workId: string, entry: ResumeEntry, trackedEntries: number): LatestReadExportEntry {
+	return {
+		workId,
+		siteId: entry.siteId,
+		host: entry.host,
+		workHref: entry.mainHref,
+		workKey: entry.workKey,
+		chapterHref: entry.chapterHref,
+		chapterTitle: entry.title,
+		workTitle: entry.workTitle,
+		trackedEntries,
+		progressPercent: roundProgressPercent(entry.percent),
+		scrollY: entry.scrollY,
+		updatedAt: entry.updatedAt,
+		updatedAtIso: new Date(entry.updatedAt).toISOString(),
+		storageKey: entry.storageKey
+	};
 }
 
 function normalizeResumeEntryType(value: unknown): ResumeEntry['entryType'] {

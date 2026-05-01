@@ -234,7 +234,8 @@ button.ghost:hover {
   background: rgba(0, 0, 0, 0.58);
 }
 
-.validation-modal {
+.validation-modal,
+.feedback-modal {
   width: min(620px, 100%);
   background: var(--surface);
   border: 1px solid var(--border-subtle);
@@ -245,16 +246,23 @@ button.ghost:hover {
   gap: 18px;
 }
 
-.validation-modal-head {
+.validation-modal-head,
+.feedback-modal-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
 }
 
-.validation-modal-head h2 {
+.validation-modal-head h2,
+.feedback-modal-head h2 {
   font: 700 22px/1.15 'Chakra Petch', sans-serif;
   margin-top: 4px;
+}
+
+.feedback-modal-body {
+  color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .validation-modal-meta {
@@ -530,6 +538,12 @@ button.ghost:hover {
   font: 500 11px/1 'IBM Plex Mono', monospace;
   color: var(--muted);
   letter-spacing: 0.02em;
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 input[type="text"],

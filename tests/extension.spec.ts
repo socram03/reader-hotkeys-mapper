@@ -220,11 +220,17 @@ test.describe.serial('ChapterPilot extension', () => {
 		await expect(continuePage.locator('#continue-reading-list')).toContainText('Custom Reader 1');
 		await continuePage.locator('#continue-search').fill('custom');
 		await expect(continuePage.locator('[data-continue-reading-href*="/custom/reader-1.html"]')).toBeVisible();
+		const openedContinueChapterPromise = context.waitForEvent('page');
 		await continuePage.click('[data-continue-reading-href*="/custom/reader-1.html"]');
+		const openedContinueChapter = await openedContinueChapterPromise;
+		await openedContinueChapter.waitForLoadState();
 		await continuePage.close();
 		await latestReadPopup.close();
 
-		await expect(readerPage).toHaveURL(/reader-1\.html$/);
+		await expect(openedContinueChapter).toHaveURL(/reader-1\.html$/);
+		await openedContinueChapter.close();
+		await readerPage.goto(`${baseURL}/custom/reader-1.html`);
+		await ensureReaderInTab(optionsPage, targetTabId);
 		await waitForExtensionReady(readerPage);
 
 		await optionsPage.bringToFront();
@@ -324,6 +330,16 @@ test.describe.serial('ChapterPilot extension', () => {
 		await expect(optionsPage.locator('[data-shortcut-action="next"]')).toHaveValue('Ctrl+ArrowRight');
 		await optionsPage.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' }));
 		await expect(optionsPage.locator('#save-settings')).toBeVisible();
+		await optionsPage.click('[data-shortcut-action="prev"]');
+		await optionsPage.keyboard.press('Control+ArrowRight');
+		await optionsPage.click('#save-settings');
+		const duplicateShortcutModal = optionsPage.locator('[data-feedback-modal="true"]');
+		await expect(duplicateShortcutModal).toBeVisible();
+		await expect(duplicateShortcutModal).toContainText('Atajo duplicado');
+		await duplicateShortcutModal.locator('[data-feedback-close="true"]').click();
+		await expect(duplicateShortcutModal).toBeHidden();
+		await optionsPage.click('[data-shortcut-action="prev"]');
+		await optionsPage.keyboard.press('ArrowLeft');
 		await optionsPage.click('#save-settings');
 		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 
@@ -367,6 +383,7 @@ test.describe.serial('ChapterPilot extension', () => {
 
 		await optionsPage.fill('[data-reading-setting="backgroundColor"]', '#101010');
 		await optionsPage.fill('[data-reading-setting="maxWidth"]', '720');
+		await optionsPage.fill('[data-history-setting="completedThresholdPercent"]', '97');
 		await optionsPage.click('#save-settings');
 		await expect(optionsPage.locator('.notice')).toContainText('Ajustes guardados');
 
@@ -429,6 +446,84 @@ test.describe.serial('ChapterPilot extension', () => {
 		await optionsPage.close();
 	});
 
+	test('separates continue reading from full history at the saved threshold', async ({ baseURL }) => {
+		const continuePage = await context.newPage();
+		await continuePage.goto(`chrome-extension://${extensionId}/continue.html`);
+		await continuePage.evaluate(async hrefs => {
+			await chrome.storage.local.set({
+				readerHotkeysSettings: {
+					_global: {
+						completedThresholdPercent: 97
+					}
+				},
+				readerHotkeysResume: {
+					pending: {
+						storageKey: 'pending',
+						entryType: 'chapter',
+						scrollY: 500,
+						percent: 0.5,
+						updatedAt: Date.now(),
+						title: 'Pending Chapter',
+						workTitle: 'Pending Work',
+						host: '127.0.0.1:4173',
+						siteId: 'custom',
+						mainHref: hrefs.pendingWork,
+						workKey: 'pending-work',
+						chapterHref: hrefs.pendingChapter
+					},
+					completed: {
+						storageKey: 'completed',
+						entryType: 'chapter',
+						scrollY: 970,
+						percent: 0.97,
+						updatedAt: Date.now() + 1,
+						title: 'Completed Chapter',
+						workTitle: 'Pending Work',
+						host: '127.0.0.1:4173',
+						siteId: 'custom',
+						mainHref: hrefs.pendingWork,
+						workKey: 'pending-work',
+						chapterHref: hrefs.completedChapter
+					},
+					otherPending: {
+						storageKey: 'otherPending',
+						entryType: 'chapter',
+						scrollY: 400,
+						percent: 0.4,
+						updatedAt: Date.now() + 2,
+						title: 'Open Chapter',
+						workTitle: 'Open Work',
+						host: '127.0.0.1:4173',
+						siteId: 'custom',
+						mainHref: hrefs.otherPendingWork,
+						workKey: 'other-pending-work',
+						chapterHref: hrefs.otherPendingChapter
+					}
+				}
+			});
+		}, {
+			pendingWork: `${baseURL}/custom/series.html`,
+			pendingChapter: `${baseURL}/custom/reader-1.html`,
+			completedChapter: `${baseURL}/custom/reader-2.html`,
+			otherPendingWork: `${baseURL}/alt/series.html`,
+			otherPendingChapter: `${baseURL}/alt/reader-1.html`
+		});
+
+		await continuePage.reload();
+		await expect(continuePage.locator('[data-continue-tab="continue"]')).toHaveAttribute('aria-selected', 'true');
+		await expect(continuePage.locator('#continue-reading-list .continue-card')).toHaveCount(1);
+		await expect(continuePage.locator('#continue-reading-list')).toContainText('Open Chapter');
+		await expect(continuePage.locator('#continue-reading-list')).not.toContainText('Pending Chapter');
+		await expect(continuePage.locator('#continue-reading-list')).not.toContainText('Completed Chapter');
+		await continuePage.click('[data-continue-tab="history"]');
+		await expect(continuePage.locator('[data-continue-tab="history"]')).toHaveAttribute('aria-selected', 'true');
+		await expect(continuePage.locator('#continue-reading-list .continue-card')).toHaveCount(3);
+		await expect(continuePage.locator('#continue-reading-list')).toContainText('Pending Chapter');
+		await expect(continuePage.locator('#continue-reading-list')).toContainText('Completed Chapter');
+		await expect(continuePage.locator('#continue-reading-list')).toContainText('Open Chapter');
+		await continuePage.close();
+	});
+
 	test('supports explicit activation and migration aliases from options', async ({ baseURL }) => {
 		const optionsPage = await context.newPage();
 		await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
@@ -480,6 +575,44 @@ test.describe.serial('ChapterPilot extension', () => {
 		await waitForExtensionReady(migratedPage);
 		await migratedPage.keyboard.press('ArrowRight');
 		await expect(migratedPage).toHaveURL(/localhost:4173\/alt\/reader-2\.html$/);
+	});
+
+	test('runs mapped button-only reader controls', async ({ baseURL }) => {
+		const readerPage = await context.newPage();
+		readerPage.on('dialog', dialog => dialog.accept('Button Local'));
+
+		await readerPage.goto(`${baseURL}/button/reader-1.html`);
+		await waitForExtensionIdle(readerPage);
+
+		const optionsPage = await context.newPage();
+		await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+		await optionsPage.click('#start-picker');
+
+		const targetTabId = await getTargetTabId(optionsPage);
+		await readerPage.bringToFront();
+		await expect(readerPage.locator('[data-mapper-save="true"]')).toBeVisible();
+
+		await readerPage.click('#next-button');
+		await readerPage.click('#prev-button');
+		await readerPage.click('#main-button');
+		await readerPage.click('[data-mapper-save="true"]');
+		await waitForExtensionReady(readerPage);
+
+		await ensureReaderInTab(optionsPage, targetTabId);
+		await readerPage.bringToFront();
+		await readerPage.keyboard.press('ArrowRight');
+		await expect(readerPage).toHaveURL(/button\/reader-2\.html$/);
+
+		await waitForExtensionReady(readerPage);
+		await readerPage.keyboard.press('ArrowLeft');
+		await expect(readerPage).toHaveURL(/button\/reader-1\.html$/);
+
+		await waitForExtensionReady(readerPage);
+		await readerPage.keyboard.press('m');
+		await expect(readerPage).toHaveURL(/button\/series\.html$/);
+
+		await optionsPage.close();
+		await readerPage.close();
 	});
 
 	test('keeps last read in SPA chapter flows without requiring a reload', async ({ baseURL }) => {
@@ -621,11 +754,15 @@ test.describe.serial('ChapterPilot extension', () => {
 		await expect(continuePage.locator('[data-continue-reading-href*="/manga/rename-old/chapter-2.html"]')).toBeVisible();
 		await continuePage.click('[data-repair-continue-reading-href*="/manga/rename-old/chapter-2.html"]');
 		await expect(continuePage.locator('[data-continue-reading-href*="/manga/rename-new/chapter-2.html"]')).toBeVisible();
+		const openedRepairedChapterPromise = context.waitForEvent('page');
 		await continuePage.click('[data-continue-reading-href*="/manga/rename-new/chapter-2.html"]');
+		const openedRepairedChapter = await openedRepairedChapterPromise;
+		await openedRepairedChapter.waitForLoadState();
 		await continuePage.close();
 		await popupPage.close();
 
-		await expect(readerPage).toHaveURL(/manga\/rename-new\/chapter-2\.html$/);
+		await expect(openedRepairedChapter).toHaveURL(/manga\/rename-new\/chapter-2\.html$/);
+		await openedRepairedChapter.close();
 
 		await optionsPage.close();
 		await readerPage.close();

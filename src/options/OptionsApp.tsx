@@ -16,6 +16,7 @@ import {
 	inferPathPrefix,
 	importFullBackup,
 	isFullBackup,
+	loadHistorySettings,
 	loadFullBackup,
 	loadLanguage,
 	loadLatestReadExport,
@@ -23,6 +24,7 @@ import {
 	loadStorageMode,
 	loadUserMappings,
 	multilineTextToList,
+	normalizeHistorySettings,
 	normalizeHost,
 	normalizeHostList,
 	normalizePrefix,
@@ -41,7 +43,7 @@ import {
 } from '../shared';
 import { MappingCard } from './MappingCard';
 import { ShortcutCaptureInput } from './ShortcutCaptureInput';
-import type { Language, PrivacySettings, ReaderModeSettings, ShortcutAction, ShortcutSettings, StorageMode } from '../shared';
+import type { HistorySettings, Language, PrivacySettings, ReaderModeSettings, ShortcutAction, ShortcutSettings, StorageMode } from '../shared';
 import type { MappingEntry, MappingState } from './types';
 
 type ValidationResult = {
@@ -61,12 +63,14 @@ export function OptionsApp() {
 	const [mappingState, setMappingState] = useState<MappingState>({ version: 3, entries: [] });
 	const [shortcutSettings, setShortcutSettings] = useState<ShortcutSettings>(normalizeShortcutSettings(null));
 	const [readerModeSettings, setReaderModeSettings] = useState<ReaderModeSettings>(normalizeReaderModeSettings(null));
+	const [historySettings, setHistorySettings] = useState<HistorySettings>(normalizeHistorySettings(null));
 	const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({ streamerMode: false });
 	const [storageMode, setStorageModeState] = useState<StorageMode>('local');
 	const [language, setLanguage] = useState<Language>('es');
 	const [savedSettingsSnapshot, setSavedSettingsSnapshot] = useState('');
 	const [resumeSummary, setResumeSummary] = useState({ totalWorks: 0, totalEntries: 0 });
 	const [message, setMessageState] = useState<{ text: string; error: boolean }>({ text: '', error: false });
+	const [feedbackModal, setFeedbackModal] = useState<{ text: string; error: boolean } | null>(null);
 	const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
 	const importFileRef = useRef<HTMLInputElement>(null);
 	const t = (key: Parameters<typeof getMessage>[1], values?: Parameters<typeof getMessage>[2]) => getMessage(language, key, values);
@@ -105,19 +109,21 @@ export function OptionsApp() {
 			shortcuts: shortcutSettings,
 			readerMode: readerModeSettings,
 			privacy: privacySettings,
-			storageMode
+			storageMode,
+			history: historySettings
 		});
-	}, [language, shortcutSettings, readerModeSettings, privacySettings, storageMode]);
+	}, [language, shortcutSettings, readerModeSettings, privacySettings, storageMode, historySettings]);
 
 	const hasUnsavedSettings = Boolean(savedSettingsSnapshot) && currentSettingsSnapshot !== savedSettingsSnapshot;
 
 	async function initialize() {
 		try {
-			const [nextMappingState, latestReads, nextShortcutSettings, nextReaderModeSettings, nextPrivacySettings, nextStorageMode, nextLanguage] = await Promise.all([
+			const [nextMappingState, latestReads, nextShortcutSettings, nextReaderModeSettings, nextHistorySettings, nextPrivacySettings, nextStorageMode, nextLanguage] = await Promise.all([
 				loadUserMappings(),
 				loadLatestReadExport(),
 				loadGlobalShortcutSettings(),
 				loadReaderModeSettings(),
+				loadHistorySettings(),
 				loadPrivacySettings(),
 				loadStorageMode(),
 				loadLanguage()
@@ -126,6 +132,7 @@ export function OptionsApp() {
 			setMappingState(nextMappingState);
 			setShortcutSettings(nextShortcutSettings);
 			setReaderModeSettings(nextReaderModeSettings);
+			setHistorySettings(nextHistorySettings);
 			setPrivacySettings(nextPrivacySettings);
 			setStorageModeState(nextStorageMode);
 			setLanguage(nextLanguage);
@@ -133,6 +140,7 @@ export function OptionsApp() {
 				language: nextLanguage,
 				shortcuts: nextShortcutSettings,
 				readerMode: nextReaderModeSettings,
+				history: nextHistorySettings,
 				privacy: nextPrivacySettings,
 				storageMode: nextStorageMode
 			}));
@@ -158,6 +166,13 @@ export function OptionsApp() {
 	}
 
 	function setMessage(text: string, error = false) {
+		if (error) {
+			setFeedbackModal({ text, error });
+			setMessageState({ text: '', error: false });
+			return;
+		}
+
+		setFeedbackModal(null);
 		setMessageState({ text, error });
 	}
 
@@ -182,10 +197,18 @@ export function OptionsApp() {
 		}));
 	}
 
+	function updateHistorySetting(field: keyof HistorySettings, value: string) {
+		setHistorySettings(current => ({
+			...current,
+			[field]: Number(value)
+		}));
+	}
+
 	async function saveSettings() {
 		try {
 			const normalizedShortcuts = normalizeShortcutSettings(shortcutSettings);
 			const normalizedReaderMode = normalizeReaderModeSettings(readerModeSettings);
+			const normalizedHistory = normalizeHistorySettings(historySettings);
 			const normalizedPrivacy = { streamerMode: Boolean(privacySettings.streamerMode) };
 			const normalizedStorageMode: StorageMode = storageMode === 'sync' ? 'sync' : 'local';
 			const usedShortcuts = new Map<string, string>();
@@ -216,18 +239,21 @@ export function OptionsApp() {
 				language,
 				shortcuts: normalizedShortcuts,
 				readerMode: normalizedReaderMode,
+				completedThresholdPercent: normalizedHistory.completedThresholdPercent,
 				streamerMode: normalizedPrivacy.streamerMode
 			};
 
 			await extensionStorage.set({ [STORAGE_KEYS.settings]: settings });
 			setShortcutSettings(normalizedShortcuts);
 			setReaderModeSettings(normalizedReaderMode);
+			setHistorySettings(normalizedHistory);
 			setPrivacySettings(normalizedPrivacy);
 			setStorageModeState(normalizedStorageMode);
 			setSavedSettingsSnapshot(createSettingsSnapshot({
 				language,
 				shortcuts: normalizedShortcuts,
 				readerMode: normalizedReaderMode,
+				history: normalizedHistory,
 				privacy: normalizedPrivacy,
 				storageMode: normalizedStorageMode
 			}));
@@ -535,6 +561,25 @@ async function migrateFromTargetTab(mappingId: string) {
 				</div>
 			) : null}
 
+			{feedbackModal ? (
+				<div class="modal-backdrop" data-feedback-modal="true" onClick={() => setFeedbackModal(null)}>
+					<section class="feedback-modal" role="alertdialog" aria-modal="true" aria-labelledby="feedback-modal-title" onClick={event => event.stopPropagation()}>
+						<div class="validation-modal-head">
+							<div>
+								<p class="eyebrow">{t('common.errorUnknown')}</p>
+								<h2 id="feedback-modal-title">{t('options.title')}</h2>
+							</div>
+							<button type="button" class="ghost" data-feedback-close="true" onClick={() => setFeedbackModal(null)}>
+								{t('options.validateModalClose')}
+							</button>
+						</div>
+						<div class="feedback-modal-body">
+							<p>{feedbackModal.text}</p>
+						</div>
+					</section>
+				</div>
+			) : null}
+
 			{validationResult ? (
 				<div class="modal-backdrop" data-validation-modal="true" onClick={() => setValidationResult(null)}>
 					<section class="validation-modal" role="dialog" aria-modal="true" aria-labelledby="validation-modal-title" onClick={event => event.stopPropagation()}>
@@ -654,6 +699,24 @@ async function migrateFromTargetTab(mappingId: string) {
 						/>
 					</label>
 				</div>
+			</section>
+
+			<section class="shortcut-settings">
+				<div class="shortcut-settings-head">
+					<div>
+						<h2>{t('history.title')}</h2>
+					</div>
+				</div>
+				<label class="shortcut-field">
+					<span class="field-label">{t('history.completedThreshold')}</span>
+					<input
+						type="text"
+						data-history-setting="completedThresholdPercent"
+						value={String(historySettings.completedThresholdPercent)}
+						onInput={event => updateHistorySetting('completedThresholdPercent', event.currentTarget.value)}
+					/>
+					<span class="field-hint">{t('history.completedThresholdHint')}</span>
+				</label>
 			</section>
 
 			<section class="shortcut-settings">
@@ -836,6 +899,7 @@ function createSettingsSnapshot(settings: {
 	language: Language;
 	shortcuts: ShortcutSettings;
 	readerMode: ReaderModeSettings;
+	history: HistorySettings;
 	privacy: PrivacySettings;
 	storageMode: StorageMode;
 }): string {
@@ -843,6 +907,7 @@ function createSettingsSnapshot(settings: {
 		language: settings.language,
 		shortcuts: normalizeShortcutSettings(settings.shortcuts),
 		readerMode: normalizeReaderModeSettings(settings.readerMode),
+		history: normalizeHistorySettings(settings.history),
 		privacy: {
 			streamerMode: Boolean(settings.privacy.streamerMode)
 		},

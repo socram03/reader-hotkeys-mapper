@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Button Reader 0</title>
+    <style>
+      body { margin: 0; font-family: sans-serif; background: #111827; color: white; }
+      header { position: sticky; top: 0; display: flex; gap: 12px; padding: 16px; background: #1f2937; }
+      button { padding: 10px 14px; }
+      main { max-width: 720px; margin: 0 auto; padding: 24px; }
+      .page { min-height: 560px; margin-bottom: 16px; background: #374151; display: grid; place-items: center; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <button id="prev-button" type="button" data-nav="/button/reader-0.html">Anterior</button>
+      <button id="main-button" type="button" data-nav="/button/series.html">Button Work</button>
+      <button id="next-button" type="button" data-nav="/button/reader-1.html">Siguiente</button>
+    </header>
+    <main>
+      <h1>Button Reader 0</h1>
+      <div class="page">0A</div>
+      <div class="page">0B</div>
+    </main>
+    <script src="/button/reader.js"></script>
+  </body>
+</html>

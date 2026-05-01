@@ -256,21 +256,21 @@ function validateMappingOnPage(mapping) {
 		return { ok: false, results: { next: false, prev: false, main: false } };
 	}
 
-	const nextHref = resolveMappedHref(mapping.actions.next);
-	const prevHref = resolveMappedHref(mapping.actions.prev);
-	const mainHref = resolveMappedHref(mapping.actions.main);
+	const nextTarget = resolveMappedActionTarget(mapping.actions.next);
+	const prevTarget = resolveMappedActionTarget(mapping.actions.prev);
+	const mainTarget = resolveMappedActionTarget(mapping.actions.main);
 
 	return {
 		ok: true,
 		results: {
-			next: Boolean(nextHref),
-			prev: Boolean(prevHref),
-			main: Boolean(mainHref)
+			next: Boolean(nextTarget),
+			prev: Boolean(prevTarget),
+			main: Boolean(mainTarget)
 		},
 		hrefs: {
-			next: nextHref,
-			prev: prevHref,
-			main: mainHref
+			next: nextTarget?.href || '',
+			prev: prevTarget?.href || '',
+			main: mainTarget?.href || ''
 		}
 	};
 }
@@ -645,10 +645,23 @@ function handleGlobalShortcut(key, shortcut) {
 }
 
 function getSiteShortcutAction(key) {
-	if (isShortcut(key, 'next')) return () => navigateToHref(runtime.site.getNextHref?.());
-	if (isShortcut(key, 'prev')) return () => navigateToHref(runtime.site.getPrevHref?.());
-	if (isShortcut(key, 'main')) return () => navigateToHref(runtime.site.getMainHref?.());
+	if (isShortcut(key, 'next')) return () => runSiteAction('next');
+	if (isShortcut(key, 'prev')) return () => runSiteAction('prev');
+	if (isShortcut(key, 'main')) return () => runSiteAction('main');
 	return null;
+}
+
+function runSiteAction(action) {
+	const runner = runtime.site?.runAction;
+	if (typeof runner === 'function') return runner(action);
+
+	const hrefGetter = {
+		next: runtime.site?.getNextHref,
+		prev: runtime.site?.getPrevHref,
+		main: runtime.site?.getMainHref
+	}[action];
+
+	return navigateToHref(hrefGetter?.());
 }
 
 function isShortcut(key, action) {
@@ -692,6 +705,7 @@ function getMappedSite(location) {
 		getNextHref: () => resolveMappedHref(mapping.actions?.next),
 		getPrevHref: () => resolveMappedHref(mapping.actions?.prev),
 		getMainHref: () => resolveMappedHref(mapping.actions?.main),
+		runAction: action => runMappedAction(mapping.actions?.[action]),
 		getFocusCss: () => ''
 	};
 }
@@ -1949,15 +1963,29 @@ function buildNthSelector(element) {
 }
 
 function resolveMappedHref(action) {
-	if (!action) return '';
+	return resolveMappedActionTarget(action)?.href || '';
+}
+
+async function runMappedAction(action) {
+	const target = resolveMappedActionTarget(action);
+	if (!target) return false;
+	if (target.href) return navigateToHref(target.href);
+
+	await persistResumeBeforeMappedClick();
+	target.element.click();
+	return true;
+}
+
+function resolveMappedActionTarget(action) {
+	if (!action) return null;
 
 	if (Array.isArray(action.selectors)) {
 		for (const selector of action.selectors) {
 			try {
 				const element = document.querySelector(selector);
 				if (!element) continue;
-				const href = element.getAttribute?.('href');
-				if (href) return href;
+				const href = getElementActionHref(element);
+				if (href || isClickableMappedElement(element)) return { element, href };
 			} catch {}
 		}
 	}
@@ -1967,11 +1995,35 @@ function resolveMappedHref(action) {
 		return action.text && text.includes(action.text);
 	});
 
-	if (fallback?.getAttribute('href')) {
-		return fallback.getAttribute('href');
+	if (fallback) {
+		return { element: fallback, href: fallback.getAttribute('href') || '' };
 	}
 
-	return '';
+	return null;
+}
+
+function getElementActionHref(element) {
+	if (!element) return '';
+
+	const directHref = element.getAttribute?.('href');
+	if (directHref) return directHref;
+
+	const nestedHref = element.querySelector?.('a[href]')?.getAttribute('href');
+	return nestedHref || '';
+}
+
+function isClickableMappedElement(element) {
+	if (!(element instanceof HTMLElement)) return false;
+	if (element instanceof HTMLButtonElement && element.disabled) return false;
+	return Boolean(element.closest?.('a, button, [role="button"], [onclick]') || element.onclick);
+}
+
+async function persistResumeBeforeMappedClick() {
+	try {
+		await flushResumeSave();
+	} catch {
+		return;
+	}
 }
 
 function escapeCssToken(value) {

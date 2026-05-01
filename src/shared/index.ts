@@ -1,5 +1,6 @@
 export * from './backup';
 export * from './extensionStorage';
+export * from './historySettings';
 export * from './i18n';
 export * from './mappings';
 export * from './privacy';

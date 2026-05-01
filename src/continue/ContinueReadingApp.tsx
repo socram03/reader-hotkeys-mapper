@@ -4,22 +4,29 @@ import {
 	clearLatestReads,
 	getBestTargetTab,
 	getMessage,
+	isContinueReadingEntry,
+	loadHistorySettings,
 	loadLanguage,
 	loadLatestReadExport,
 	loadPrivacySettings,
+	loadReadingHistoryExport,
 	removeLatestReadWork,
 	sendReaderMessage
 } from '../shared';
-import type { Language, LatestReadExportEntry, ReaderStatus } from '../shared';
+import type { HistorySettings, Language, LatestReadExportEntry, ReaderStatus } from '../shared';
 
 type TargetTab = chrome.tabs.Tab | null;
+type ContinueTab = 'continue' | 'history';
 
 export function ContinueReadingApp() {
 	const [targetTab, setTargetTab] = useState<TargetTab>(null);
 	const [status, setStatus] = useState<ReaderStatus | null>(null);
-	const [entries, setEntries] = useState<LatestReadExportEntry[]>([]);
+	const [continueEntries, setContinueEntries] = useState<LatestReadExportEntry[]>([]);
+	const [historyEntries, setHistoryEntries] = useState<LatestReadExportEntry[]>([]);
+	const [historySettings, setHistorySettings] = useState<HistorySettings | null>(null);
 	const [language, setLanguage] = useState<Language>('es');
 	const [streamerMode, setStreamerMode] = useState(false);
+	const [activeTab, setActiveTab] = useState<ContinueTab>('continue');
 	const [query, setQuery] = useState('');
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
@@ -29,11 +36,12 @@ export function ContinueReadingApp() {
 		void initialize();
 	}, []);
 
+	const activeEntries = activeTab === 'history' ? historyEntries : continueEntries;
 	const filteredEntries = useMemo(() => {
 		const normalizedQuery = query.trim().toLowerCase();
-		if (!normalizedQuery) return entries;
+		if (!normalizedQuery) return activeEntries;
 
-		return entries.filter(entry => {
+		return activeEntries.filter(entry => {
 			const searchableText = [
 				entry.workTitle,
 				entry.chapterTitle,
@@ -44,7 +52,7 @@ export function ContinueReadingApp() {
 
 			return searchableText.includes(normalizedQuery);
 		});
-	}, [entries, query]);
+	}, [activeEntries, query]);
 
 	async function initialize() {
 		try {
@@ -66,8 +74,14 @@ export function ContinueReadingApp() {
 	}
 
 	async function refreshEntries() {
-		const latestReads = await loadLatestReadExport();
-		setEntries(latestReads.entries);
+		const [latestReads, readingHistory, nextHistorySettings] = await Promise.all([
+			loadLatestReadExport(),
+			loadReadingHistoryExport(),
+			loadHistorySettings()
+		]);
+		setHistorySettings(nextHistorySettings);
+		setContinueEntries(latestReads.entries.filter(entry => isContinueReadingEntry(entry, nextHistorySettings)));
+		setHistoryEntries(readingHistory.entries);
 	}
 
 	async function removeEntry(entry: LatestReadExportEntry) {
@@ -75,7 +89,10 @@ export function ContinueReadingApp() {
 
 		try {
 			const latestReads = await removeLatestReadWork(entry.workId);
-			setEntries(latestReads.entries);
+			const [readingHistory, nextHistorySettings] = await Promise.all([loadReadingHistoryExport(), loadHistorySettings()]);
+			setHistorySettings(nextHistorySettings);
+			setContinueEntries(latestReads.entries.filter(item => isContinueReadingEntry(item, nextHistorySettings)));
+			setHistoryEntries(readingHistory.entries);
 			setNotice(t('continue.removed'));
 			setError('');
 		} catch (nextError) {
@@ -85,12 +102,13 @@ export function ContinueReadingApp() {
 	}
 
 	async function wipeEntries() {
-		if (!entries.length) return;
+		if (!historyEntries.length) return;
 		if (!confirm(t('continue.wipeConfirm'))) return;
 
 		try {
 			const latestReads = await clearLatestReads();
-			setEntries(latestReads.entries);
+			setContinueEntries(latestReads.entries);
+			setHistoryEntries([]);
 			setNotice(t('continue.wiped'));
 			setError('');
 		} catch (nextError) {
@@ -103,14 +121,7 @@ export function ContinueReadingApp() {
 		if (!entry.chapterHref) return;
 
 		try {
-			const currentHref = status?.currentChapterHref || '';
-			if (targetTab?.id && currentHref && areComparableHrefsEqual(currentHref, entry.chapterHref)) {
-				await sendReaderMessage(targetTab.id, { type: 'reader:resume-last-read' });
-			} else if (targetTab?.id) {
-				await chrome.tabs.update(targetTab.id, { url: entry.chapterHref });
-			} else {
-				await chrome.tabs.create({ url: entry.chapterHref });
-			}
+			await chrome.tabs.create({ url: entry.chapterHref });
 
 			setNotice(t('continue.opened', { title: streamerMode ? t('privacy.hiddenReading') : getEntryTitle(entry) }));
 			setError('');
@@ -156,7 +167,8 @@ export function ContinueReadingApp() {
 					</div>
 				</div>
 				<div class="continue-stats">
-					<span>{t('continue.totalWorks', { count: entries.length })}</span>
+					<span>{t('continue.totalWorks', { count: activeEntries.length })}</span>
+					{historySettings ? <span>{t('continue.threshold', { percent: historySettings.completedThresholdPercent })}</span> : null}
 					<span>{targetTab?.url ? t('continue.targetReady') : t('continue.targetMissing')}</span>
 				</div>
 			</header>
@@ -179,19 +191,57 @@ export function ContinueReadingApp() {
 					id="wipe-continue-reading"
 					type="button"
 					class="danger"
-					disabled={!entries.length}
+					disabled={!historyEntries.length}
 					onClick={() => void wipeEntries()}
 				>
 					{t('continue.wipe')}
 				</button>
 			</section>
 
-			{error ? <div class="message error">{error}</div> : null}
+			<div class="continue-tabs" aria-label={t('continue.tabsLabel')} role="tablist">
+				<button
+					type="button"
+					role="tab"
+					class={activeTab === 'continue' ? 'active' : ''}
+					data-continue-tab="continue"
+					aria-selected={activeTab === 'continue' ? 'true' : 'false'}
+					onClick={() => setActiveTab('continue')}
+				>
+					{t('continue.tabContinue')}
+				</button>
+				<button
+					type="button"
+					role="tab"
+					class={activeTab === 'history' ? 'active' : ''}
+					data-continue-tab="history"
+					aria-selected={activeTab === 'history' ? 'true' : 'false'}
+					onClick={() => setActiveTab('history')}
+				>
+					{t('continue.tabHistory')}
+				</button>
+			</div>
+
+			{error ? (
+				<div class="modal-backdrop" data-feedback-modal="true" onClick={() => setError('')}>
+					<section class="feedback-modal" role="alertdialog" aria-modal="true" aria-labelledby="feedback-modal-title" onClick={event => event.stopPropagation()}>
+						<div class="feedback-modal-head">
+							<div>
+								<p class="eyebrow">{t('common.errorUnknown')}</p>
+								<h2 id="feedback-modal-title">{t('continue.feedbackTitle')}</h2>
+							</div>
+							<button type="button" class="ghost" data-feedback-close="true" onClick={() => setError('')}>
+								{t('options.validateModalClose')}
+							</button>
+						</div>
+						<p>{error}</p>
+					</section>
+				</div>
+			) : null}
 			{notice ? <div class="message ok">{notice}</div> : null}
 
 			<section id="continue-reading-list" class="continue-list">
 				{filteredEntries.length ? filteredEntries.map(entry => (
-					<article key={entry.workId} class="continue-card">
+					<article key={`${entry.workId}:${entry.storageKey}`} class="continue-card">
 						<div class="continue-card-main">
 							<div>
 								<h2>{streamerMode ? t('privacy.hiddenReading') : getEntryTitle(entry)}</h2>
@@ -236,8 +286,8 @@ export function ContinueReadingApp() {
 					</article>
 				)) : (
 					<div class="empty-state">
-						<h2>{entries.length ? t('continue.noMatches') : t('continue.empty')}</h2>
-						<p>{entries.length ? t('continue.noMatchesHint') : t('continue.emptyHint')}</p>
+						<h2>{activeEntries.length ? t('continue.noMatches') : activeTab === 'history' ? t('continue.historyEmpty') : t('continue.empty')}</h2>
+						<p>{activeEntries.length ? t('continue.noMatchesHint') : activeTab === 'history' ? t('continue.historyEmptyHint') : t('continue.emptyHint')}</p>
 					</div>
 				)}
 			</section>
@@ -255,18 +305,4 @@ function formatDate(timestamp: number) {
 
 function getErrorMessage(error: unknown) {
 	return error instanceof Error ? error.message : String(error || 'Unknown error');
-}
-
-function areComparableHrefsEqual(left: string, right: string) {
-	return normalizeComparableHref(left) === normalizeComparableHref(right);
-}
-
-function normalizeComparableHref(value: string) {
-	try {
-		const url = new URL(value);
-		url.hash = '';
-		return url.href;
-	} catch {
-		return value;
-	}
 }

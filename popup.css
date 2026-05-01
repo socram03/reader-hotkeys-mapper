@@ -391,6 +391,46 @@ body::after {
   font-size: 11px;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.feedback-modal {
+  width: min(380px, 100%);
+  background: var(--surface);
+  border: 1px solid rgba(248, 113, 113, 0.22);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.feedback-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.feedback-modal h2 {
+  font: 700 17px/1.15 'Chakra Petch', sans-serif;
+  margin-top: 4px;
+}
+
+.feedback-modal p {
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 /* ── SHORTCUTS FOOTER ── */
 .shortcuts {
   background: var(--surface);
