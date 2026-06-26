@@ -1,6 +1,14 @@
 import type { ReaderMessage, ReaderStatus } from './types';
 
 const READER_STATUS_MESSAGE: ReaderMessage = { type: 'reader:get-status' };
+const TAB_ACCESS_ERROR_PATTERNS = [
+	'Cannot access contents of url',
+	'Extension manifest must request permission',
+	'The extensions gallery cannot be scripted',
+	'Missing host permission',
+	'Cannot access a chrome:// URL',
+	'Cannot access a chrome-extension:// URL'
+];
 
 export async function sendMessageToTab<T>(tabId: number, message: unknown): Promise<T> {
 	return chrome.tabs.sendMessage(tabId, message) as Promise<T>;
@@ -15,6 +23,11 @@ export async function injectReaderScript(tabId: number): Promise<void> {
 		target: { tabId },
 		files: ['content.js']
 	});
+}
+
+export function isReaderScriptAccessError(error: unknown): boolean {
+	const message = getErrorMessage(error);
+	return TAB_ACCESS_ERROR_PATTERNS.some(pattern => message.includes(pattern));
 }
 
 export async function ensureReaderScript(tabId: number): Promise<ReaderStatus> {
@@ -58,4 +71,9 @@ function delay(ms: number): Promise<void> {
 
 function isReaderStatusReady(status: ReaderStatus | null | undefined): boolean {
 	return ['idle', 'true'].includes(String(status?.readyState ?? ''));
+}
+
+function getErrorMessage(error: unknown): string {
+	if (error instanceof Error) return error.message;
+	return String(error || '');
 }

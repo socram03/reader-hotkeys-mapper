@@ -5,6 +5,7 @@ import {
 	getBestTargetTab,
 	getMessage,
 	isContinueReadingEntry,
+	isReaderScriptAccessError,
 	loadHistorySettings,
 	loadLanguage,
 	loadLatestReadExport,
@@ -64,8 +65,14 @@ export function ContinueReadingApp() {
 			const tab = await getBestTargetTab();
 			setTargetTab(tab);
 			if (tab?.id) {
-				const nextStatus = await ensureReaderScript(tab.id);
-				setStatus(nextStatus);
+				try {
+					const nextStatus = await ensureReaderScript(tab.id);
+					setStatus(nextStatus);
+				} catch (nextError) {
+					if (!isReaderScriptAccessError(nextError)) throw nextError;
+					setTargetTab(null);
+					setStatus(null);
+				}
 			}
 			setError('');
 		} catch (nextError) {

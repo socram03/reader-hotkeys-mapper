@@ -31,6 +31,42 @@ test.describe.serial('ChapterPilot extension', () => {
 		if (userDataDir) fs.rmSync(userDataDir, { recursive: true, force: true });
 	});
 
+	test('shows a friendly popup message when Chrome blocks target access', async () => {
+		const popupPage = await context.newPage();
+		await popupPage.addInitScript(() => {
+			const blockedError = new Error('Cannot access contents of url "https://media.licdn.com/dms/image/mock". Extension manifest must request permission to access this host.');
+			const targetTab = {
+				id: 123,
+				url: 'https://media.licdn.com/dms/image/mock',
+				title: 'Blocked media',
+				active: true,
+				lastAccessed: Date.now()
+			};
+
+			Object.defineProperty(chrome.tabs, 'query', { configurable: true, value: async () => [targetTab] });
+			Object.defineProperty(chrome.tabs, 'sendMessage', {
+				configurable: true,
+				value: async () => {
+					throw new Error('Could not establish connection. Receiving end does not exist.');
+				}
+			});
+			Object.defineProperty(chrome.scripting, 'executeScript', {
+				configurable: true,
+				value: async () => {
+					throw blockedError;
+				}
+			});
+		});
+
+		await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
+		const modal = popupPage.locator('[data-feedback-modal="true"]');
+		await expect(modal).toBeVisible();
+		await expect(modal).toContainText('No encontre una pestana web compatible');
+		await expect(modal).not.toContainText('media.licdn.com');
+		await expect(modal).not.toContainText('Extension manifest');
+		await popupPage.close();
+	});
+
 	test('maps a custom site and enables navigation shortcuts', async ({ baseURL }) => {
 		const readerPage = await context.newPage();
 		readerPage.on('dialog', dialog => dialog.accept('Custom Local'));

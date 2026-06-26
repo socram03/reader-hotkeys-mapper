@@ -16,6 +16,7 @@ import {
 	inferPathPrefix,
 	importFullBackup,
 	isFullBackup,
+	isReaderScriptAccessError,
 	loadHistorySettings,
 	loadFullBackup,
 	loadLanguage,
@@ -352,6 +353,11 @@ export function OptionsApp() {
 			await sendReaderMessage(targetTab.id, { type: 'reader:start-mapper' });
 			setMessage(t('options.pickerStarted', { target: targetTab.title || targetTab.url || '' }));
 		} catch (error) {
+			if (isReaderScriptAccessError(error)) {
+				setMessage(t('options.noCompatibleTab'), true);
+				return;
+			}
+
 			setMessage(t('options.pickerStartError', { error: getErrorMessage(error) }), true);
 		}
 	}
@@ -428,6 +434,11 @@ async function migrateFromTargetTab(mappingId: string) {
 			});
 			setMessage(t('options.validateCompleted', { summary }), !result.results.next || !result.results.main);
 		} catch (error) {
+			if (isReaderScriptAccessError(error)) {
+				setMessage(t('options.noTabForValidate'), true);
+				return;
+			}
+
 			setMessage(t('options.validateFailed', { error: getErrorMessage(error) }), true);
 		}
 	}
