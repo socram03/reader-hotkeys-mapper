@@ -4,6 +4,7 @@ import {
 	getBestTargetTab,
 	getMessage,
 	isContinueReadingEntry,
+	isReaderScriptAccessError,
 	loadHistorySettings,
 	loadLanguage,
 	loadLatestReadExport,
@@ -35,6 +36,7 @@ export function PopupApp() {
 			setStreamerMode(nextPrivacySettings.streamerMode);
 			const tab = await getBestTargetTab();
 			setTargetTab(tab);
+			await refreshContinueReading();
 			if (!tab?.id) {
 				setError(t('popup.noCompatibleTab'));
 				return;
@@ -42,9 +44,15 @@ export function PopupApp() {
 
 			const nextStatus = await ensureReaderScript(tab.id);
 			setStatus(nextStatus);
-			await refreshContinueReading();
 			setError('');
 		} catch (nextError) {
+			if (isReaderScriptAccessError(nextError)) {
+				setTargetTab(null);
+				setStatus(null);
+				setError(t('popup.noCompatibleTab'));
+				return;
+			}
+
 			setError(t('popup.prepareError', { error: getErrorMessage(nextError) }));
 		}
 	}
